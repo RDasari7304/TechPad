@@ -19,12 +19,12 @@ runs containers and gives you a persistent disk. Render is the quickest; a VPS i
    service + 5 GB disk. (Or **New → Web Service → Docker** and fill the same env vars by hand.)
 2. In the service's **Environment** tab set the secrets marked `sync: false`:
    `ANTHROPIC_API_KEY` (required), `GITHUB_TOKEN` (recommended), the five `X_*` keys (only if you run
-   the bot). Set `LARPCHECK_PUBLIC_URL` to your real domain **with https://**.
+   the bot). The public URL defaults to the service URL Render provides; set `TECHPAD_PUBLIC_URL` only for a custom domain.
 3. Plan: **Standard (2 GB)** or higher. Chromium + 4 workers will not fit in 512 MB.
 4. Deploy. First build takes ~5 min (pulls the Playwright image). Check `https://<service>.onrender.com/api/status`
    returns `{"ok": true, ...}`.
 5. **Custom domain** (optional; the live URL is currently `https://techpad.onrender.com`): service → Settings →
-   Custom Domains → add `yourdomain.com` and `www.yourdomain.com`, then change `LARPCHECK_PUBLIC_URL` to match.
+   Custom Domains → add `yourdomain.com` and `www.yourdomain.com`, then change `TECHPAD_PUBLIC_URL` to match.
    Render shows the DNS records: at your registrar add
    - `A` record `@` → the IP Render shows (or `ALIAS/ANAME @ → <service>.onrender.com` if your DNS supports it)
    - `CNAME` `www` → `<service>.onrender.com`
@@ -38,7 +38,7 @@ runs containers and gives you a persistent disk. Render is the quickest; a VPS i
 # on the server (Ubuntu 22.04+, 4 GB RAM recommended)
 sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 caddy
 git clone <your repo> techpad && cd techpad
-cp .env.example .env && nano .env        # fill ANTHROPIC_API_KEY, LARPCHECK_PUBLIC_URL=https://yourdomain.com, X keys
+cp .env.example .env && nano .env        # fill ANTHROPIC_API_KEY, TECHPAD_PUBLIC_URL=https://yourdomain.com, X keys
 docker build -t techpad .
 docker run -d --name techpad --restart unless-stopped --env-file .env \
   -v /srv/techpad-data:/app/data -p 127.0.0.1:8000:8000 techpad
@@ -65,7 +65,7 @@ domain in their dashboard and add the CNAME they give you. Fly needs `fly volume
 
 - **X bot**: in developer.x.com give the app Read+Write with user authentication, regenerate the access
   token/secret *after* changing permissions, put the five keys in the env, redeploy. Reply to any tweet
-  with `@techpad check this` to test. Replies link to `LARPCHECK_PUBLIC_URL/#t/<id>`.
+  with `@techpad check this` to test. Replies link to `TECHPAD_PUBLIC_URL/#t/<id>`.
 - **First launch**: do a throwaway launch yourself first. The pump.fun IPFS upload and PumpPortal create
   are third-party endpoints; if either errors, the Deploy step shows the message and nothing is spent.
 - **Backups**: everything is in `/app/data` (SQLite + uploads). On Render, enable disk snapshots; on a VPS,
@@ -77,7 +77,7 @@ domain in their dashboard and add the CNAME they give you. Fly needs `fly volume
 
 ## Checklist
 
-- [ ] `LARPCHECK_PUBLIC_URL` = `https://your-domain` (no trailing slash)
+- [ ] `TECHPAD_PUBLIC_URL` = `https://your-domain` (no trailing slash)
 - [ ] `ANTHROPIC_API_KEY` set, old key revoked
 - [ ] Persistent disk mounted at `/app/data`
 - [ ] Plan has ≥ 2 GB RAM

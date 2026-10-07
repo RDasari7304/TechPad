@@ -12,8 +12,8 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false          # set in the dashboard, never commit it
-      - key: LARPCHECK_PUBLIC_URL
-        value: https://techpad.onrender.com   # <-- your public URL, with https://, no trailing slash
+      # Public URL comes from RENDER_EXTERNAL_URL (https://techpad.onrender.com), which Render sets itself.
+      # For a custom domain later, add TECHPAD_PUBLIC_URL=https://yourdomain.com in the dashboard.
       - key: LARPCHECK_WORKERS
         value: "4"
       - key: LARPCHECK_MODEL

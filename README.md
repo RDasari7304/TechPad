@@ -135,7 +135,7 @@ The **Launch** tab lets a developer launch a tech token *through* TechPad so it 
    (verdict, score, cert id, link to the full report), demo video, what-it-does, audit findings, onboarding,
    links, pump.fun button. `/badge/<CA>.svg` is an embeddable badge; `/api/coin/<CA>` is the JSON.
 
-Set `LARPCHECK_PUBLIC_URL` to your real domain before launching anything — it is baked into the token's
+Set `TECHPAD_PUBLIC_URL` to your real domain before launching anything — it is baked into the token's
 metadata permanently. pump.fun's IPFS endpoint and PumpPortal's API are third-party and can change; both are
 configurable (`PUMP_IPFS_URL`, `PUMPPORTAL_URL`). Test on a throwaway first.
 
@@ -147,7 +147,7 @@ configurable (`PUMP_IPFS_URL`, `PUMPPORTAL_URL`). Test on a throwaway first.
 
 The bot polls mentions. If someone replies to a project's tweet with `@yourbot check / test / larp / real?`,
 it takes **the tweet being replied to** as the project's X link, pulls any CA from either tweet, runs the
-test, and replies with the verdict and a link to the full report (`LARPCHECK_PUBLIC_URL/#t/<id>`).
+test, and replies with the verdict and a link to the full report (`TECHPAD_PUBLIC_URL/#t/<id>`).
 
 ## Tuning for vague vs. detailed projects
 
