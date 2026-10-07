@@ -20,15 +20,28 @@ finished verdicts are cached for 24h.
 
 ```
 request ──► 0. research   token metadata (pump.fun, DexScreener, on-chain mint) + X profile/tweet
-                          + website + docs + GitHub — no LLM yet, just fetching
-        ──► 1. understand Claude turns the material into a list of concrete, falsifiable CLAIMS
-                          (and says which are untestable hype)
-        ──► 2. test       Claude gets tools and tries each claim: headless Chromium for dApps,
-                          HTTP client for APIs, GitHub inspector, read-only Solana RPC, Python + shell
-                          to clone/run code. Every step is recorded.
-        ──► 3. verdict    WORKS / PARTIAL / UNVERIFIED / LARP, 0-100 score, evidence, red flags,
-                          what would change the verdict, and a tweet-sized reply
+                          + website + GitHub — no LLM, just fetching (time-boxed, 15s)
+        ──► 1. test 1     Claude picks the project's MAIN thing and runs one decisive check on it
+                          (open the app and use it, hit the API, or read the repo's real code)
+        ──► 2. test 2     only if test 1 leaned "works" or was 50/50: one more check on a different
+                          main thing
+        ──► 3. verdict    decided by fixed rules from the two results (below), plus score, evidence,
+                          red flags and a tweet-sized reply
 ```
+
+Every test finishes within `LARPCHECK_TIME_LIMIT_SECONDS` (default 60s), no exceptions; if time runs out it
+reports what it has.
+
+| Test 1 | Test 2 | Verdict |
+|---|---|---|
+| verified | — | WORKS |
+| leans broken / broken | — | LARP |
+| leans works | verified / leans works | WORKS |
+| leans works | inconclusive / broken / no time | PARTIAL |
+| 50/50 | verified | WORKS |
+| 50/50 | leans works | PARTIAL |
+| 50/50 | inconclusive / no time | UNVERIFIED (says it's inconclusive) |
+| 50/50 | leans broken / broken | LARP |
 
 Money: each test has a hard LLM budget (`LARPCHECK_BUDGET_USD`, default $1.50). The agent stops and
 writes a verdict with what it has when the cap is hit. Total spend is tracked in the archive.
@@ -138,10 +151,10 @@ test, and replies with the verdict and a link to the full report (`LARPCHECK_PUB
 
 ## Tuning for vague vs. detailed projects
 
-* `detail_level` in the understanding step drives behaviour: projects with no product link produce few
-  testable claims and come back **UNVERIFIED** with an explicit "what would prove it" list, rather than a
-  fake LARP verdict. Projects with an app/API/repo get hands-on testing.
-* `LARPCHECK_MAX_TOOL_CALLS` / `LARPCHECK_MAX_TEST_SECONDS` bound how deep the tester goes.
+* Projects with nothing to try come back **UNVERIFIED** (both tests inconclusive) with a "what would prove it"
+  list, rather than a fake LARP verdict.
+* `LARPCHECK_TIME_LIMIT_SECONDS` / `LARPCHECK_RESEARCH_SECONDS` / `LARPCHECK_CALLS_PER_TEST` bound how long and
+  how deep the tester goes.
 * `LARPCHECK_ALLOW_LOCAL=1` lets the agent open `localhost` URLs (off by default for safety).
 * Set `GITHUB_TOKEN` to avoid GitHub's 60 req/h unauthenticated limit when many tests inspect repos.
 * Swap `LARPCHECK_MODEL` (and the two price vars so the budget cap stays accurate).

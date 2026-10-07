@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 
 from . import tools
@@ -79,11 +80,15 @@ def _is_dead(page: str) -> str | None:
     return None
 
 
-def build_dossier(req: Request, log=print, on_tool=None) -> dict:
+def build_dossier(req: Request, log=print, on_tool=None, deadline: float | None = None) -> dict:
     """Collect everything we can find before spending LLM tokens. Pure fetching, no LLM.
-    Nothing here raises: a dead site becomes a 'dead_links' entry (a red flag), and we move on."""
+    Nothing here raises: a dead site becomes a 'dead_links' entry (a red flag), and we move on.
+    Past `deadline` (time.time()) the remaining fetches are skipped."""
     d: dict = {"request": req.text, "ca": req.ca, "x_url": req.x_url, "sources": {}, "dead_links": []}
     blob = req.text + "\n"
+
+    def late() -> bool:
+        return deadline is not None and time.time() >= deadline
 
     if req.ca:
         log("looking up token metadata")
@@ -108,7 +113,7 @@ def build_dossier(req: Request, log=print, on_tool=None) -> dict:
         except Exception:
             pass
 
-    if req.x_url:
+    if req.x_url and not late():
         log(f"reading X: {req.x_url}")
         x = tools.x_lookup(req.x_url)
         if on_tool:
@@ -117,7 +122,7 @@ def build_dossier(req: Request, log=print, on_tool=None) -> dict:
             d["dead_links"].append({"url": req.x_url, "why": "X account/tweet not found or unreadable"})
         d["sources"]["x"] = x
         blob += x + "\n"
-        if "/status/" in req.x_url and req.x_handle:
+        if "/status/" in req.x_url and req.x_handle and not late():
             prof = tools.x_lookup("@" + req.x_handle)
             if on_tool:
                 on_tool("x_lookup", {"url_or_handle": "@" + req.x_handle}, prof)
@@ -130,7 +135,10 @@ def build_dossier(req: Request, log=print, on_tool=None) -> dict:
             links["apps"].append(u)
     d["links"] = links
 
-    for u in (links["apps"] + links["docs"])[:4]:
+    for u in (links["apps"] + links["docs"])[:3]:
+        if late():
+            log("research time is up — moving on to testing")
+            break
         log(f"fetching {u}")
         page = tools.fetch_url(u, max_chars=8000)
         if on_tool:
@@ -146,6 +154,8 @@ def build_dossier(req: Request, log=print, on_tool=None) -> dict:
     for k in links:
         links[k] = sorted(set(links[k] + links2[k]))[:10]
     for g in links["github"][:2]:
+        if late():
+            break
         log(f"inspecting {g}")
         d["sources"][g] = tools.github_inspect(g)
         if on_tool:
@@ -160,8 +170,9 @@ X_EMBED = "https://platform.twitter.com/embed/Tweet.html?dnt=true&id={id}"
 X_PROFILE_EMBED = "https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}"
 
 
-def camera_tour(browser, req: Request, d: dict, log=print) -> None:
-    """Visit the real pages in the headless browser so the live cam shows them. Visual only; never raises."""
+def camera_tour(browser, req: Request, d: dict, log=print, deadline: float | None = None) -> None:
+    """Visit the real pages in the headless browser so the live cam shows them. Visual only; never raises.
+    Stops at `deadline` (time.time())."""
     stops: list[tuple[str, str]] = []
     if req.x_url:
         m = X_RE.match(req.x_url)
@@ -177,6 +188,8 @@ def camera_tour(browser, req: Request, d: dict, log=print) -> None:
     stops += [(u, "docs") for u in (links.get("docs") or [])[:1]]
     stops += [(u, "github") for u in (links.get("github") or [])[:1]]
     for url, label in stops[:8]:
+        if deadline is not None and deadline - time.time() < 3:
+            break
         log(f"📷 {label}: {url}")
         try:
             browser.peek(url, label=label, scrolls=1 if label in ("x.com tweet", "pump.fun") else 2)

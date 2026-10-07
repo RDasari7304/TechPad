@@ -263,6 +263,23 @@ class Browser:
         self.console: list[str] = []
         self.network_errors: list[str] = []
         self.on_frame = on_frame  # callback(b64_jpeg, url, title) for the live camera
+        self.deadline: float | None = None  # time.time() by which every page action must have finished
+
+    def _ms(self, cap_ms: int) -> int:
+        """Playwright timeout that never runs past the deadline."""
+        if self.deadline is None:
+            return cap_ms
+        left = int((self.deadline - time.time()) * 1000) - 500
+        if left < 1500:
+            raise TimeoutError("time limit reached")
+        return min(cap_ms, left)
+
+    def _settle(self, ms: int) -> None:
+        """Short wait for the page to render, trimmed so it never runs past the deadline."""
+        if self.deadline is not None:
+            ms = min(ms, max(0, int((self.deadline - time.time()) * 1000) - 500))
+        if ms > 0:
+            self.page.wait_for_timeout(ms)
 
     def _frame(self, label: str = "") -> None:
         if not self.on_frame or not self.page:
@@ -279,13 +296,14 @@ class Browser:
         if not u:
             return False
         try:
+            timeout = self._ms(12000)
             self._ensure()
-            self.page.goto(u, wait_until="domcontentloaded", timeout=20000)
-            self.page.wait_for_timeout(2500)
+            self.page.goto(u, wait_until="domcontentloaded", timeout=timeout)
+            self._settle(1500)
             self._frame(label)
             for _ in range(scrolls):
                 self.page.mouse.wheel(0, 650)
-                self.page.wait_for_timeout(900)
+                self._settle(700)
                 self._frame(label)
             return True
         except Exception:
@@ -307,11 +325,15 @@ class Browser:
         u = _safe_url(url)
         if not u:
             return f"ERROR: refusing {url!r}"
+        try:
+            timeout = self._ms(20000)
+        except TimeoutError:
+            return "ERROR: time limit reached, page not opened"
         self._ensure()
         self.console.clear(); self.network_errors.clear()
         try:
-            resp = self.page.goto(u, wait_until="domcontentloaded", timeout=30000)
-            self.page.wait_for_timeout(2500)
+            resp = self.page.goto(u, wait_until="domcontentloaded", timeout=timeout)
+            self._settle(2000)
         except Exception as e:
             self._frame()
             return f"ERROR: navigation failed: {e}"
@@ -353,21 +375,21 @@ class Browser:
         try:
             if action == "click":
                 sel = f"[data-lc='{target}']" if target.isdigit() else target
-                self.page.click(sel, timeout=8000)
+                self.page.click(sel, timeout=self._ms(8000))
             elif action == "type":
                 sel = f"[data-lc='{target}']" if target.isdigit() else target
-                self.page.fill(sel, value, timeout=8000)
+                self.page.fill(sel, value, timeout=self._ms(8000))
             elif action == "press":
                 self.page.keyboard.press(value or "Enter")
             elif action == "scroll":
                 self.page.mouse.wheel(0, int(value or 800))
             elif action == "wait":
-                self.page.wait_for_timeout(min(int(value or 2000), 15000))
+                self._settle(min(int(value or 2000), 15000))
             elif action == "eval":
                 return str(self.page.evaluate(value))[:6000]
             else:
                 return f"ERROR: unknown action {action}"
-            self.page.wait_for_timeout(1500)
+            self._settle(1500)
             self._frame()
             return f"ok ({self.page.url})\n\n{self.snapshot()}"
         except Exception as e:
