@@ -77,7 +77,8 @@ class Launchpad:
             raise LaunchError("creator wallet is not a valid Solana address")
         data = {
             "name": name, "ticker": ticker, "description": (body.get("description") or "").strip()[:2000],
-            "github": _clean_url(body.get("github")), "app_url": _clean_url(body.get("app_url")),
+            "github": _clean_url(body.get("github")), "website": _clean_url(body.get("website")),
+            "app_url": _clean_url(body.get("app_url")),
             "docs_url": _clean_url(body.get("docs_url")), "x_url": _clean_url(body.get("x_url")),
             "telegram": _clean_url(body.get("telegram")), "video_url": _clean_url(body.get("video_url")),
             "onboarding": (body.get("onboarding") or "").strip()[:8000], "creator_wallet": wallet or None,
@@ -106,7 +107,8 @@ class Launchpad:
         if not (name and ticker and desc):
             raise LaunchError("name, ticker and description are required")
         fields = {"name": name, "ticker": ticker, "description": desc,
-                  "github": _clean_url(body.get("github")), "app_url": _clean_url(body.get("app_url")),
+                  "github": _clean_url(body.get("github")), "website": _clean_url(body.get("website")),
+                  "app_url": _clean_url(body.get("app_url")),
                   "docs_url": _clean_url(body.get("docs_url")), "x_url": _clean_url(body.get("x_url")),
                   "telegram": _clean_url(body.get("telegram")), "video_url": _clean_url(body.get("video_url")),
                   "onboarding": (body.get("onboarding") or "").strip()[:8000]}
@@ -127,7 +129,7 @@ class Launchpad:
                  "actually missing, broken or contradicted. In would_change_verdict, give concrete, specific fixes the "
                  "developer can act on (which link to add, which feature to make reachable, which claim to demo).",
                  f"DESCRIPTION: {L.get('description') or '(none)'}"]
-        for k, label in (("github", "GitHub"), ("app_url", "App/website"), ("docs_url", "Docs"), ("x_url", "X"),
+        for k, label in (("github", "GitHub"), ("website", "Website"), ("app_url", "App/demo"), ("docs_url", "Docs"), ("x_url", "X"),
                          ("telegram", "Telegram"), ("video_url", "Demo video")):
             if L.get(k):
                 parts.append(f"{label}: {L[k]}")
