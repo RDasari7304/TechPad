@@ -578,7 +578,7 @@ async function launchShow(){
       $('#l3').hidden=true; $('#lfix').hidden=false;
       $('#lfixwhy').innerHTML=`⛔ <b>${esc(L.eligibility_reason)}.</b>&nbsp; Nothing is lost — fix the items on the left and re-run; the audit is free to repeat.`;
       const todo=[...(a.would_change_verdict||[])];
-      if(!L.github&&!L.website&&!L.app_url&&!L.docs_url) todo.unshift('Add a link the agent can actually open: a GitHub repo, your website, a live app URL, or docs. Right now there is nothing to test.');
+      if(!L.github&&!L.website&&!L.app_url&&!L.docs_url) todo.unshift('Add a link the agent can actually open: a GitHub repo, your website, or docs. Right now there is nothing to test.');
       if(!L.video_url&&!L.video_path) todo.push('Add a demo video (upload or YouTube/Loom link) showing the product working.');
       if((L.description||'').length<80) todo.push('Expand the description: say concretely what the product does, who uses it and how — vague text reads as a placeholder.');
       $('#lfixdo').innerHTML=li(todo);
