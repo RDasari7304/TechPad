@@ -61,9 +61,11 @@ class Settings:
     ALLOW_SPEND: bool = _bool("LARPCHECK_ALLOW_SPEND", False)
 
     # --- Agent limits ---
-    MAX_TOOL_CALLS: int = _int("LARPCHECK_MAX_TOOL_CALLS", 40)
-    MAX_TEST_SECONDS: int = _int("LARPCHECK_MAX_TEST_SECONDS", 600)
-    HTTP_TIMEOUT: int = _int("LARPCHECK_HTTP_TIMEOUT", 25)
+    # A test is: research, one main test, and (only if that wasn't decisive) one follow-up test.
+    TIME_LIMIT_SECONDS: int = _int("LARPCHECK_TIME_LIMIT_SECONDS", 60)   # whole test, wall clock, hard cap
+    RESEARCH_SECONDS: int = _int("LARPCHECK_RESEARCH_SECONDS", 15)       # metadata/X/website fetch + camera tour
+    CALLS_PER_TEST: int = _int("LARPCHECK_CALLS_PER_TEST", 2)            # tool calls allowed in each of the 2 tests
+    HTTP_TIMEOUT: int = _int("LARPCHECK_HTTP_TIMEOUT", 10)
     USE_BROWSER: bool = _bool("LARPCHECK_USE_BROWSER", True)
     RUN_CODE: bool = _bool("LARPCHECK_RUN_CODE", True)
     # Re-use a previous verdict for the same CA if it is younger than this many hours.

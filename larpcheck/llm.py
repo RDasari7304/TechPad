@@ -18,6 +18,10 @@ class BudgetExceeded(Exception):
     pass
 
 
+class DeadlineExceeded(BudgetExceeded):
+    """Out of wall-clock time. Subclasses BudgetExceeded so tool loops wrap up the same way."""
+
+
 @dataclass
 class Usage:
     input_tokens: int = 0
@@ -43,12 +47,15 @@ class LLM:
     usage: Usage = field(default_factory=Usage)
     model: str = settings.MODEL
     mock: Callable[[list[dict], list[dict] | None], dict] | None = None
+    deadline: float | None = None  # time.time() after which no new request may start or keep running
 
     # ---- raw call -------------------------------------------------------
     def message(self, system: str, messages: list[dict], tools: list[dict] | None = None,
                 max_tokens: int = 4096, temperature: float = 0.2, force: bool = False) -> dict:
         if not force and self.usage.cost_usd >= self.budget_usd:
             raise BudgetExceeded(f"spent ${self.usage.cost_usd:.3f} of ${self.budget_usd:.2f}")
+        if self.deadline is not None and self.deadline - time.time() < 2:
+            raise DeadlineExceeded("time limit reached")
         if self.mock is not None:
             resp = self.mock(messages, tools)
             self.usage.add(resp.get("usage", {"input_tokens": 500, "output_tokens": 200}))
@@ -70,8 +77,13 @@ class LLM:
         }
         last_err: Exception | None = None
         for attempt in range(4):
+            timeout = 180.0
+            if self.deadline is not None:
+                timeout = min(timeout, self.deadline - time.time())
+                if timeout < 2:
+                    raise DeadlineExceeded(f"time limit reached (last error: {last_err})")
             try:
-                r = requests.post(API_URL, headers=headers, json=body, timeout=180)
+                r = requests.post(API_URL, headers=headers, json=body, timeout=timeout)
                 if r.status_code in (429, 500, 502, 503, 529):
                     last_err = RuntimeError(f"API {r.status_code}: {r.text[:300]}")
                     time.sleep(2 ** attempt)

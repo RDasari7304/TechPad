@@ -1,4 +1,4 @@
-"""The LarpCheck agent: understand → test → verdict.
+"""The TechPad agent: research → test the main thing → (maybe) one follow-up test → verdict, in under a minute.
 
 run_test(text) is synchronous and self-contained; the queue runs many of these in parallel threads.
 """
@@ -6,81 +6,73 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 import traceback
 from typing import Callable
 
 from .config import settings
-from .llm import LLM, BudgetExceeded, parse_json
+from .llm import LLM, BudgetExceeded, DeadlineExceeded, parse_json
 from .research import build_dossier, camera_tour, dossier_text, parse_request
 from .tools import TOOL_SCHEMAS, ToolBox
 
 VERDICTS = ("WORKS", "PARTIAL", "UNVERIFIED", "LARP")
 
-UNDERSTAND_SYSTEM = """You are TechPad, a skeptical but fair technical due-diligence analyst for Solana "tech" tokens.
-You will be given raw material about a project (token metadata, tweets, website text, GitHub). Figure out WHAT the
-project claims to be and WHAT it claims to do, then turn those claims into concrete, falsifiable tests.
+TEST_SYSTEM = """You are TechPad. You check whether a Solana "tech" token's product actually works.
+You get research material (token metadata, X, website, GitHub). The whole check has a hard one-minute limit, so you
+run at most TWO short tests. Speed matters more than thoroughness.
 
-Rules:
-- Only list claims the project itself makes (or strongly implies). Do not invent features.
-- Vague projects get vague claims — say so. A project with no product link and only hype has few testable claims.
-- For each claim, say how a tester with a browser, HTTP client, Python, shell, GitHub access and read-only Solana RPC
-  could actually try it. Be specific (URL to open, endpoint to hit, repo to run, program ID to check).
-- Mark claims that are unfalsifiable (future roadmap, partnerships, "AI-powered" with no demo) as testable=false.
-- Links the project advertises that are dead, parked, 403/404, SSL-broken or "coming soon" are red flags: list them in
-  initial_red_flags and do NOT create testable claims that depend on them (they are already proven unreachable).
-Output ONLY JSON:
-{
- "project_name": str, "category": str (e.g. "AI agent", "trading bot", "DeFi protocol", "infra/API", "game", "DePIN", "memecoin w/ utility", "unknown"),
- "one_liner": str,
- "detail_level": "none"|"vague"|"moderate"|"extensive",
- "product_links": {"app": str|null, "docs": str|null, "github": str|null, "api": str|null, "telegram": str|null},
- "claims": [{"id": "C1", "claim": str, "source": str, "testable": bool, "how_to_test": str, "importance": "core"|"secondary"}],
- "initial_red_flags": [str]
-}"""
+A test = pick ONE main thing and run the single action that best shows whether it works: open the app and use its
+core feature, hit its API, or inspect the repo's real code. At most {calls} tool calls per test. Do not browse around,
+read marketing pages or re-fetch pages already in the material.
 
-TEST_SYSTEM = """You are TechPad's hands-on tester. Your job: actually TRY the product and find out if it works.
-You have tools: a real headless browser, HTTP client, GitHub inspector, read-only Solana RPC, Python and shell.
+Rate what the test showed as "result":
+- VERIFIED: you saw the core thing actually work.
+- LEANS_WORKS: real signs it works, not fully proven (e.g. app loads and looks functional, but the main action needs
+  a wallet or login).
+- INCONCLUSIVE: 50/50, nothing decisive either way (nothing to try, needs access, ambiguous output).
+- LEANS_BROKEN: strong signs it is not real (template or "coming soon" site, placeholder app, README-only or forked
+  repo, claims contradicted by what you saw).
+- BROKEN: you saw it fail or be fake.
+Dead links the project advertises count against it. Never pay, sign transactions, connect a wallet or enter keys.
 
-Method:
-1. Start with the CORE claims. Open the app / hit the API / clone and run the repo. Don't just read marketing pages — interact.
-2. For each claim gather EVIDENCE: what you did, what happened (status codes, UI responses, console errors, outputs).
-3. Distinguish: WORKS (you observed it functioning), BROKEN (you tried, it failed/errored/placeholder), UNTESTABLE
-   (no way to try it: paywalled, needs invite, future roadmap, no link), FAKE (evidence it's a facade: template site,
-   copied repo, fake API, dead links, plagiarized code, screenshot-only "demo").
-4. Look for larp signals: Lovable/Framer template with no backend calls, "coming soon" buttons, GitHub repo that is a
-   fork with zero changes or only README, endpoints that return static JSON, claimed program IDs that don't exist
-   on-chain, metrics that don't change, AI "agents" that are just a chat widget calling nothing.
-5. Be efficient: ~{max_calls} tool calls max. Prefer actions that settle a claim fast. If something needs login,
-   try the public parts, then move on.
-6. Never pay money, never submit private keys, never sign transactions. Wallet connect flows: observe the UI only.
-7. If a claim can only be checked by reading code, read the actual code paths, not the README.
+Verdict rules (apply exactly):
+- After test 1: VERIFIED -> WORKS. LEANS_BROKEN or BROKEN -> LARP. LEANS_WORKS or INCONCLUSIVE -> you will be asked
+  for test 2 on a DIFFERENT main thing.
+- Test 1 LEANS_WORKS: test 2 VERIFIED or LEANS_WORKS -> WORKS; anything else -> PARTIAL.
+- Test 1 INCONCLUSIVE: test 2 VERIFIED -> WORKS, LEANS_WORKS -> PARTIAL, INCONCLUSIVE -> UNVERIFIED (say plainly that
+  both tests were inconclusive and why), LEANS_BROKEN or BROKEN -> LARP.
 
-When done, output ONLY JSON:
-{
- "claim_results": [{"id": "C1", "status": "WORKS"|"BROKEN"|"UNTESTABLE"|"FAKE"|"PARTIAL", "evidence": str, "steps": [str]}],
- "observations": [str],
- "larp_signals": [str],
- "legit_signals": [str]
-}"""
+After each test output ONLY compact JSON with short strings, no code fences:
+{"project_name": str, "category": str, "one_liner": str,
+ "claim": str (the main thing you tested), "did": str (what you did), "evidence": str (what you observed),
+ "result": "VERIFIED"|"LEANS_WORKS"|"INCONCLUSIVE"|"LEANS_BROKEN"|"BROKEN",
+ "next_test": str (only if LEANS_WORKS or INCONCLUSIVE: the one different main thing to test next; else ""),
+ "verdict": "WORKS"|"PARTIAL"|"UNVERIFIED"|"LARP", "score": int (0-100, probability it does what it says),
+ "confidence": int (0-100), "headline": str (<=100 chars), "summary": str (2-3 sentences, covers every test so far),
+ "what_works": [str], "what_doesnt": [str], "red_flags": [str], "would_change_verdict": [str]}"""
 
-VERDICT_SYSTEM = """You are TechPad's judge. Given the claims and hands-on test results, decide if this project is real.
+RESULTS = ("VERIFIED", "LEANS_WORKS", "INCONCLUSIVE", "LEANS_BROKEN", "BROKEN")
+# how a test result shows up in the report's claim list
+RESULT_STATUS = {"VERIFIED": "WORKS", "LEANS_WORKS": "PARTIAL", "INCONCLUSIVE": "UNTESTABLE",
+                 "LEANS_BROKEN": "BROKEN", "BROKEN": "BROKEN"}
+SCORE_RANGE = {"WORKS": (70, 100), "PARTIAL": (40, 74), "UNVERIFIED": (20, 55), "LARP": (0, 30)}
+# tools the two tests may use: fast, single-shot actions only (no cloning or running code)
+TEST_TOOLS = ("browser_goto", "browser_act", "fetch_url", "http_request", "github_inspect", "solana_rpc", "x_lookup")
 
-Verdict scale:
-- WORKS: core claims demonstrably function.
-- PARTIAL: something real exists but key claims are missing, broken or overstated.
-- UNVERIFIED: could not be tested meaningfully (no product to try). Say exactly why, and what WOULD prove it.
-- LARP: evidence the product is fake, a facade, or the claims are materially false.
 
-Score 0-100 = probability the project does what it says (not price/market quality).
-Dead or placeholder links that the project itself advertises count AGAINST it (a real product has a reachable site);
-treat them as evidence, lower the score, and name them in red_flags — but a single flaky link alone is not proof of LARP.
-Be concrete and quote evidence. Be fair: "untestable" is not the same as "fake".
-Output ONLY JSON:
-{"verdict": "WORKS"|"PARTIAL"|"UNVERIFIED"|"LARP", "score": int, "confidence": int,
- "headline": str (<=100 chars), "summary": str (3-6 sentences, plain English, for a crypto twitter reader),
- "what_works": [str], "what_doesnt": [str], "red_flags": [str], "would_change_verdict": [str],
- "tweet": str (<=260 chars reply for X: verdict emoji, project name, 1-2 punchy evidence lines, link placeholder {url})}"""
+def decide(r1: str | None, r2: str | None = None) -> str:
+    """Verdict from the main test and, if one ran, the follow-up test."""
+    if r1 == "VERIFIED":
+        return "WORKS"
+    if r1 in ("LEANS_BROKEN", "BROKEN"):
+        return "LARP"
+    if r2 is None:  # follow-up never ran (out of time)
+        return "PARTIAL" if r1 == "LEANS_WORKS" else "UNVERIFIED"
+    if r1 == "LEANS_WORKS":
+        return "WORKS" if r2 in ("VERIFIED", "LEANS_WORKS") else "PARTIAL"
+    # r1 inconclusive (50/50)
+    return {"VERIFIED": "WORKS", "LEANS_WORKS": "PARTIAL", "INCONCLUSIVE": "UNVERIFIED"}.get(r2, "LARP")
 
 
 QUICK_SYSTEM = """You are TechPad's quick auditor for a pre-launch tech token. You have ONE job, a hard budget of
@@ -109,25 +101,14 @@ When done, output ONLY JSON:
 
 
 def _mock_llm(messages: list[dict], tools: list[dict] | None) -> dict:
-    """Deterministic stand-in so the whole pipeline can be exercised without an API key or network."""
+    """Deterministic stand-in so the whole pipeline can be exercised without an API key or network.
+    LARPCHECK_MOCK_R1 / LARPCHECK_MOCK_R2 pick the result of test 1 / test 2."""
     import os
-    last = messages[-1]["content"]
-    text = last if isinstance(last, str) else json.dumps(last)
     time.sleep(float(os.environ.get("LARPCHECK_MOCK_DELAY", "0")))
-    if tools:
-        n_assist = sum(1 for m in messages if m["role"] == "assistant")
-        url = os.environ.get("LARPCHECK_MOCK_URL", "https://example.com")
-        script = [("browser_goto", {"url": url}), ("browser_act", {"action": "scroll", "value": "600"}),
-                  ("fetch_url", {"url": url}), ("http_request", {"method": "GET", "url": url + "/api/status"}),
-                  ("run_python", {"code": "print('probe ok')"})]
-        if os.environ.get("LARPCHECK_MOCK_QUICK") == "1":
-            script = script[:1]
-        if n_assist < len(script):
-            name, inp = script[n_assist]
-            return {"stop_reason": "tool_use", "content": [{"type": "tool_use", "id": f"t{n_assist}", "name": name, "input": inp}]}
-    if tools and "quick auditor" in (messages[0].get("content") if isinstance(messages[0].get("content"), str) else ""):
-        pass
-    if tools and os.environ.get("LARPCHECK_MOCK_QUICK") == "1":
+    url = os.environ.get("LARPCHECK_MOCK_URL", "https://example.com")
+    if os.environ.get("LARPCHECK_MOCK_QUICK") == "1":
+        if not any(m["role"] == "assistant" for m in messages):
+            return {"stop_reason": "tool_use", "content": [{"type": "tool_use", "id": "t0", "name": "browser_goto", "input": {"url": url}}]}
         out = {"project_name": "MockProject", "category": "AI agent", "one_liner": "Mock quick audit", "detail_level": "moderate",
                "claim": {"id": "C1", "claim": "App loads and works", "how_to_test": "open it"},
                "test": {"status": "WORKS", "evidence": "mock: the page loaded", "steps": ["browser_goto"]},
@@ -135,20 +116,18 @@ def _mock_llm(messages: list[dict], tools: list[dict] | None) -> dict:
                "summary": "Mock quick audit passed.", "what_works": ["page loads"], "what_doesnt": [], "red_flags": [],
                "would_change_verdict": []}
         return {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(out)}]}
-    if tools:
-        out = {"claim_results": [{"id": "C1", "status": "UNTESTABLE", "evidence": "mock run; no network", "steps": ["fetch_url example.com"]}],
-               "observations": ["mock mode"], "larp_signals": [], "legit_signals": []}
-        return {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(out)}]}
-    if "claims" in text and "verdict" in text.lower() and "claim_results" in text:
-        out = {"verdict": "UNVERIFIED", "score": 35, "confidence": 40, "headline": "Mock verdict — nothing could be tested",
-               "summary": "This is a mock run with no LLM and no network. The pipeline executed end to end.",
-               "what_works": [], "what_doesnt": [], "red_flags": ["mock"], "would_change_verdict": ["a working demo link"],
-               "tweet": "🟡 UNVERIFIED — mock run, nothing testable. Full report: {url}"}
-        return {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(out)}]}
-    out = {"project_name": "MockProject", "category": "unknown", "one_liner": "Mock project", "detail_level": "vague",
-           "product_links": {"app": None, "docs": None, "github": None, "api": None, "telegram": None},
-           "claims": [{"id": "C1", "claim": "Has a product", "source": "mock", "testable": True,
-                       "how_to_test": "open site", "importance": "core"}], "initial_red_flags": []}
+    # full mode: each test = one tool call, then the JSON
+    last_prompt = max(i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], str))
+    second = last_prompt > 0
+    if tools and not any(m["role"] == "assistant" for m in messages[last_prompt:]):
+        name, inp = ("http_request", {"method": "GET", "url": url + "/api/status"}) if second else ("browser_goto", {"url": url})
+        return {"stop_reason": "tool_use", "content": [{"type": "tool_use", "id": f"t{last_prompt}", "name": name, "input": inp}]}
+    r = os.environ.get("LARPCHECK_MOCK_R2" if second else "LARPCHECK_MOCK_R1", "VERIFIED" if second else "LEANS_WORKS")
+    out = {"project_name": "MockProject", "category": "AI agent", "one_liner": "Mock project",
+           "claim": "the API answers" if second else "the app loads", "did": "mock request", "evidence": "mock output",
+           "result": r, "next_test": "" if second else "call the API", "verdict": "WORKS", "score": 80,
+           "confidence": 70, "headline": "Mock run", "summary": "This is a mock run with no LLM and no network.",
+           "what_works": ["mock"], "what_doesnt": [], "red_flags": [], "would_change_verdict": []}
     return {"stop_reason": "end_turn", "content": [{"type": "text", "text": json.dumps(out)}]}
 
 
@@ -294,15 +273,110 @@ def _quick_audit(llm: LLM, box: ToolBox, req, dossier: dict, result: dict, emit,
     emit("phase", {"name": "verdict", "msg": f"{v['verdict']} {v['score']}/100"})
 
 
+def _two_tests(llm: LLM, box: ToolBox, dossier: dict, result: dict, emit, deadline: float) -> None:
+    """Test the main thing; if that leaves it open, test one more main thing; then decide. Fills result in place.
+    Each piece of result is assigned whole, so a watchdog can read a consistent snapshot at any moment."""
+    calls = settings.CALLS_PER_TEST
+    sys_prompt = TEST_SYSTEM.replace("{calls}", str(calls))
+    tools = [t for t in TOOL_SCHEMAS if t["name"] in TEST_TOOLS]
+    transcript: list[dict] = []
+    stop_tools_at = deadline - 30  # test 1 must leave room for test 2
+    box.browser.deadline = deadline - 25
+
+    def handler(name: str, inp: dict) -> str:
+        if time.time() > stop_tools_at:
+            return "ERROR: out of time for this test. Output the JSON now with what you already know."
+        out = box.handle(name, inp)
+        fr = make_frame(name, inp, out)
+        if fr:
+            emit("frame", fr)
+        return out
+
+    def run(messages: list[dict]) -> tuple[dict, str | None]:
+        final, tr = llm.tool_loop(sys_prompt, messages, tools, handler, calls, on_event=emit, max_tokens=1500)
+        transcript.extend(tr)
+        result["transcript"] = list(transcript)
+        try:
+            j = parse_json(final)
+        except ValueError:
+            j = None
+        if not isinstance(j, dict):
+            return {}, None
+        r = str(j.get("result", "")).upper()
+        return j, (r if r in RESULTS else "INCONCLUSIVE")
+
+    def publish(tests: list[tuple[dict, str]], j: dict) -> None:
+        claims, claim_results = [], []
+        for n, (t, r) in enumerate(tests, 1):
+            claims.append({"id": f"C{n}", "claim": t.get("claim") or "(main claim)", "testable": True,
+                           "importance": "core", "how_to_test": t.get("did", "")})
+            claim_results.append({"id": f"C{n}", "status": RESULT_STATUS[r],
+                                  "evidence": f"{r.replace('_', ' ').lower()}: {t.get('evidence', '')}",
+                                  "steps": [t.get("did", "")]})
+        u = _as_understanding({"project_name": j.get("project_name"), "category": j.get("category"),
+                               "one_liner": j.get("one_liner"), "detail_level": "", "claims": claims,
+                               "initial_red_flags": [f"advertised link unreachable: {x['url']} ({x['why']})"
+                                                     for x in dossier.get("dead_links", [])]})
+        v = _as_verdict({k: j.get(k) for k in ("score", "confidence", "headline", "summary", "what_works",
+                                               "what_doesnt", "red_flags", "would_change_verdict")})
+        v["verdict"] = decide(tests[0][1], tests[1][1] if len(tests) > 1 else None)
+        lo, hi = SCORE_RANGE[v["verdict"]]
+        v["score"] = max(lo, min(hi, v["score"]))
+        if not v["headline"]:
+            v["headline"] = f"{len(tests)} test{'s' if len(tests) > 1 else ''}: " + ", ".join(
+                r.replace("_", " ").lower() for _, r in tests)
+        v["tweet"] = f"{EMOJI[v['verdict']]} {v['verdict']} {v['score']}/100 — {v['headline'][:150]} {{url}}"
+        result["understanding"] = u
+        result["tests"] = _as_tests({"claim_results": claim_results, "observations": [],
+                                     "larp_signals": v["red_flags"], "legit_signals": v["what_works"]})
+        result["verdict"] = v
+
+    emit("phase", {"name": "test1", "msg": "test 1: the main thing"})
+    messages = [{"role": "user", "content": "MATERIAL:\n" + dossier_text(dossier, 14000) +
+                 "\n\nRun TEST 1 now: pick the main thing and test it, then output the JSON."}]
+    j1, r1 = run(messages)
+    if r1 is None:
+        raise DeadlineExceeded("the main test returned no usable result")
+    emit("log", {"msg": f"test 1 → {r1.replace('_', ' ').lower()}: {j1.get('claim', '')}"})
+    emit("claims", {"count": 1, "project": j1.get("project_name")})
+    publish([(j1, r1)], j1)
+
+    if r1 in ("LEANS_WORKS", "INCONCLUSIVE") and deadline - time.time() > 20:
+        nxt = j1.get("next_test") or "a different core feature"
+        emit("phase", {"name": "test2", "msg": f"test 2: {nxt}"[:160]})
+        stop_tools_at = deadline - 15
+        box.browser.deadline = deadline - 10
+        messages.append({"role": "user", "content": f"Test 1 result: {r1}. Run TEST 2 now on one DIFFERENT main thing: "
+                         f"{nxt}. At most {calls} tool calls, then output the same JSON: \"result\" is test 2's result; "
+                         "verdict, score and summary cover both tests."})
+        try:
+            j2, r2 = run(messages)
+        except BudgetExceeded:
+            j2, r2 = {}, None
+        if r2:
+            emit("log", {"msg": f"test 2 → {r2.replace('_', ' ').lower()}: {j2.get('claim', '')}"})
+            emit("claims", {"count": 2, "project": j2.get("project_name") or j1.get("project_name")})
+            publish([(j1, r1), (j2, r2)], {**j1, **{k: v for k, v in j2.items() if v not in (None, "", [])}})
+    elif r1 in ("LEANS_WORKS", "INCONCLUSIVE"):
+        emit("log", {"msg": "no time left for a second test"})
+
+
+EMOJI = {"WORKS": "🟢", "PARTIAL": "🟠", "UNVERIFIED": "🟡", "LARP": "🔴"}
+
+
 def run_test(text: str, ca: str | None = None, x_url: str | None = None,
              on_event: Callable[[str, dict], None] | None = None, mode: str = "full") -> dict:
-    """Run a LarpCheck test. mode="full" (deep) or "quick" (one decisive test, ~30s, for the launchpad).
-    Returns a result dict (always; errors are captured inside)."""
+    """Run a TechPad test. mode="full" (main test + at most one follow-up) or "quick" (one decisive test, for the
+    launchpad). Never takes longer than settings.TIME_LIMIT_SECONDS. Returns a result dict (errors captured inside)."""
     t0 = time.time()
+    deadline = t0 + settings.TIME_LIMIT_SECONDS
     events: list[dict] = []
     quick = mode == "quick"
+    abandoned = threading.Event()  # set when the watchdog gives up on the worker thread
 
     def emit(kind: str, data: dict) -> None:
+        if abandoned.is_set():
+            return
         ev = {"t": round(time.time() - t0, 1), "kind": kind, **data}
         if kind != "frame":  # frames (screenshots etc.) are streamed live only, never stored
             events.append(ev)
@@ -313,106 +387,64 @@ def run_test(text: str, ca: str | None = None, x_url: str | None = None,
                 pass
 
     llm = LLM(mock=_mock_llm if settings.MOCK_LLM else None,
-              budget_usd=settings.QUICK_BUDGET_USD if quick else settings.BUDGET_USD_PER_TEST)
+              budget_usd=settings.QUICK_BUDGET_USD if quick else settings.BUDGET_USD_PER_TEST,
+              deadline=deadline - 1)
     req = parse_request(text, ca=ca, x_url=x_url)
     result: dict = {"input": text, "ca": req.ca, "x_url": req.x_url, "status": "running", "events": events, "mode": mode}
     box = ToolBox(on_frame=lambda b64, url, title, label="": emit("frame", {"type": "screenshot", "jpeg": b64, "url": url,
                                                                            "title": title, "label": label}))
-    try:
-        # ---- Phase 0: dossier (no LLM) --------------------------------------
-        emit("phase", {"name": "research", "msg": "collecting token metadata, X, website, GitHub"})
-        def research_frame(name: str, inp: dict, out: str) -> None:
-            fr = make_frame(name, inp, out)
-            if fr:
-                emit("frame", fr)
 
-        dossier = build_dossier(req, log=lambda m: emit("log", {"msg": m}), on_tool=research_frame)
-        result["ca"], result["x_url"] = req.ca, req.x_url
-        result["links"] = dossier.get("links")
-        if settings.USE_BROWSER and not quick:
-            emit("phase", {"name": "research", "msg": "opening the pages in the browser"})
-            camera_tour(box.browser, req, dossier, log=lambda m: emit("log", {"msg": m}))
+    def work() -> None:
+        try:
+            # ---- research (no LLM), time-boxed --------------------------------
+            research_until = t0 + settings.RESEARCH_SECONDS
+            emit("phase", {"name": "research", "msg": "collecting token metadata, X, website, GitHub"})
 
-        if quick:
-            _quick_audit(llm, box, req, dossier, result, emit, t0)
-            result["status"] = "done"
-            raise _Done()
-
-        # ---- Phase 1: understand --------------------------------------------
-        emit("phase", {"name": "understand", "msg": "extracting claims"})
-        understanding = _as_understanding(llm.json_call(UNDERSTAND_SYSTEM, "MATERIAL:\n" + dossier_text(dossier) +
-                                                        "\n\nProduce the JSON now."))
-        # dead links found during research are red flags no matter what the model said
-        for x in dossier.get("dead_links", []):
-            flag = f"advertised link unreachable: {x['url']} ({x['why']})"
-            if flag not in understanding["initial_red_flags"]:
-                understanding["initial_red_flags"].append(flag)
-        result["understanding"] = understanding
-        result["dead_links"] = dossier.get("dead_links", [])
-        claims = understanding.get("claims", [])
-        emit("claims", {"count": len(claims), "project": understanding.get("project_name")})
-
-        # ---- Phase 2: test --------------------------------------------------
-        testable = [c for c in claims if c.get("testable")]
-        if testable:
-            emit("phase", {"name": "test", "msg": f"trying {len(testable)} testable claims"})
-            sys_prompt = TEST_SYSTEM.replace("{max_calls}", str(settings.MAX_TOOL_CALLS))
-            prompt = ("PROJECT UNDERSTANDING:\n" + json.dumps(understanding, indent=1) +
-                      "\n\nBACKGROUND MATERIAL (already collected):\n" + dossier_text(dossier, 20000) +
-                      "\n\nNow test the claims. Use tools. When finished, output the JSON.")
-            deadline = t0 + settings.MAX_TEST_SECONDS
-
-            def handler(name: str, inp: dict) -> str:
-                if time.time() > deadline:
-                    return "ERROR: time limit reached. Write the final JSON now."
-                out = box.handle(name, inp)
+            def research_frame(name: str, inp: dict, out: str) -> None:
                 fr = make_frame(name, inp, out)
                 if fr:
                     emit("frame", fr)
-                return out
 
-            final, transcript = llm.tool_loop(sys_prompt, [{"role": "user", "content": prompt}], TOOL_SCHEMAS,
-                                              handler, settings.MAX_TOOL_CALLS, on_event=emit)
-            result["transcript"] = transcript
-            try:
-                tests = _as_tests(parse_json(final))
-            except ValueError:
-                tests = {"claim_results": [], "observations": [final[:2000]], "larp_signals": [], "legit_signals": []}
-        else:
-            emit("phase", {"name": "test", "msg": "nothing testable — skipping hands-on phase"})
-            tests = {"claim_results": [{"id": c["id"], "status": "UNTESTABLE", "evidence": c.get("how_to_test", ""),
-                                        "steps": []} for c in claims],
-                     "observations": ["No testable claims were found."], "larp_signals": [], "legit_signals": []}
-            result["transcript"] = []
-        result["tests"] = tests
+            dossier = build_dossier(req, log=lambda m: emit("log", {"msg": m}), on_tool=research_frame,
+                                    deadline=research_until)
+            result["ca"], result["x_url"] = req.ca, req.x_url
+            result["links"] = dossier.get("links")
+            result["dead_links"] = dossier.get("dead_links", [])
+            if settings.USE_BROWSER and not quick and research_until - time.time() > 3:
+                emit("phase", {"name": "research", "msg": "opening the pages in the browser"})
+                box.browser.deadline = research_until
+                camera_tour(box.browser, req, dossier, log=lambda m: emit("log", {"msg": m}), deadline=research_until)
+            box.browser.deadline = deadline - 10  # always leave time to write the verdict
 
-        # ---- Phase 3: verdict ------------------------------------------------
-        emit("phase", {"name": "verdict", "msg": "judging"})
-        dead_note = ""
-        if dossier.get("dead_links"):
-            dead_note = "\n\nDEAD LINKS FOUND DURING RESEARCH:\n" + "\n".join(
-                f"  - {x['url']}: {x['why']}" for x in dossier["dead_links"])
-        verdict = _as_verdict(llm.json_call(VERDICT_SYSTEM, "CLAIMS:\n" + json.dumps(understanding, indent=1) +
-                                            "\n\nTEST RESULTS:\n" + json.dumps(tests, indent=1) + dead_note +
-                                            f"\n\nTool calls used: {len(result.get('transcript', []))}. Produce the verdict JSON.",
-                                            force=True))  # the verdict always runs, even if the cap was just hit
-        result["verdict"] = verdict
+            if quick:
+                _quick_audit(llm, box, req, dossier, result, emit, t0)
+            else:
+                _two_tests(llm, box, dossier, result, emit, deadline)
+                v = result["verdict"]
+                emit("phase", {"name": "verdict", "msg": f"{v['verdict']} {v['score']}/100"})
+            result["status"] = "done"
+        except BudgetExceeded as e:
+            result["status"] = "done"
+            if "verdict" not in result:
+                result["verdict"] = _out_of_time_verdict(str(e))
+        except Exception as e:
+            result["status"] = "error"
+            result["error"] = f"{type(e).__name__}: {e}"
+            result["traceback"] = traceback.format_exc()[-3000:]
+            emit("error", {"msg": result["error"]})
+        finally:
+            box.close()
+
+    worker = threading.Thread(target=work, name="techpad-test", daemon=True)
+    worker.start()
+    worker.join(max(0.0, deadline - time.time()))
+    if worker.is_alive():  # hard cap: report what we have; the thread winds down on its own (LLM/browser deadlines)
+        abandoned.set()
+        result = dict(result)
         result["status"] = "done"
-    except _Done:
-        pass
-    except BudgetExceeded as e:
-        result["status"] = "done"
-        result.setdefault("verdict", {"verdict": "UNVERIFIED", "score": 0, "confidence": 0,
-                                      "headline": "Budget exhausted before a verdict", "summary": str(e),
-                                      "what_works": [], "what_doesnt": [], "red_flags": [], "would_change_verdict": [],
-                                      "tweet": "🟡 UNVERIFIED — ran out of budget. {url}"})
-    except Exception as e:
-        result["status"] = "error"
-        result["error"] = f"{type(e).__name__}: {e}"
-        result["traceback"] = traceback.format_exc()[-3000:]
-        emit("error", {"msg": result["error"]})
-    finally:
-        box.close()
+        if "verdict" not in result:
+            result["verdict"] = _out_of_time_verdict("hit the time limit before a verdict")
+        result["events"] = list(events)
     result["project_name"] = (result.get("understanding") or {}).get("project_name") or req.x_handle or req.ca or "unknown"
     result["cost_usd"] = round(llm.usage.cost_usd, 4)
     result["llm_calls"] = llm.usage.calls
@@ -420,3 +452,10 @@ def run_test(text: str, ca: str | None = None, x_url: str | None = None,
     result["seconds"] = round(time.time() - t0, 1)
     result["model"] = llm.model
     return result
+
+
+def _out_of_time_verdict(why: str) -> dict:
+    return {"verdict": "UNVERIFIED", "score": 0, "confidence": 0, "headline": "Ran out of time before a verdict",
+            "summary": f"The test stopped early ({why}), so nothing was verified.", "what_works": [],
+            "what_doesnt": [], "red_flags": [], "would_change_verdict": ["re-run the test"],
+            "tweet": "🟡 UNVERIFIED — ran out of time. {url}"}
