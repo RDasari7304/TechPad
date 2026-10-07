@@ -91,15 +91,32 @@ class LLM:
     def text_of(resp: dict) -> str:
         return "".join(b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text")
 
-    def json_call(self, system: str, prompt: str, max_tokens: int = 4096, force: bool = False) -> Any:
-        """Ask for JSON and parse it robustly (handles ```json fences and stray prose)."""
-        resp = self.message(system, [{"role": "user", "content": prompt}], max_tokens=max_tokens, force=force)
+    def json_call(self, system: str, prompt: str, max_tokens: int = 8192, force: bool = False) -> Any:
+        """Ask for JSON and parse it robustly (handles ```json fences and stray prose).
+
+        If the reply was cut off at max_tokens or isn't valid JSON, ask once more for a complete, compact version."""
+        messages = [{"role": "user", "content": prompt}]
+        resp = self.message(system, messages, max_tokens=max_tokens, force=force)
+        text = self.text_of(resp)
+        truncated = resp.get("stop_reason") == "max_tokens"
+        if not truncated:
+            try:
+                return parse_json(text)
+            except ValueError:
+                pass
+        why = "was cut off before the JSON was complete" if truncated else "was not valid JSON"
+        retry = messages + [
+            {"role": "assistant", "content": text or "(empty)"},
+            {"role": "user", "content": f"Your reply {why}. Output the COMPLETE JSON again, compact, with no code "
+                                        "fences or prose. Keep every string short so it fits."},
+        ]
+        resp = self.message(system, retry, max_tokens=max_tokens * 2, force=True)
         return parse_json(self.text_of(resp))
 
     def tool_loop(self, system: str, messages: list[dict], tools: list[dict],
                   handler: Callable[[str, dict], str], max_steps: int,
                   on_event: Callable[[str, dict], None] | None = None,
-                  max_tokens: int = 4096) -> tuple[str, list[dict]]:
+                  max_tokens: int = 8192) -> tuple[str, list[dict]]:
         """Run a tool-use loop. Returns (final_text, transcript_of_tool_calls)."""
         transcript: list[dict] = []
         steps = 0
@@ -143,7 +160,11 @@ def parse_json(text: str) -> Any:
     text = text.strip()
     m = re.search(r"```(?:json)?\s*(.*?)```", text, re.S)
     if m:
-        text = m.group(1).strip()
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass  # e.g. a ``` inside a string ended the match early; fall through to the brace scan
+    text = re.sub(r"^```(?:json)?\s*", "", text)  # opening fence with no closing one
     try:
         return json.loads(text)
     except json.JSONDecodeError:
