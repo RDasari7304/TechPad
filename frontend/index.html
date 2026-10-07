@@ -285,6 +285,7 @@
 '~~~~~'</div>click or drop an image<br><small>png / jpg / gif / webp · square works best</small></div><input type="file" id="fimg" accept="image/*" hidden></div>
         <div class="f2">
           <div class="f"><label>GitHub repo <i>optional</i></label><input id="lg" placeholder="https://github.com/you/repo"></div>
+          <div class="f"><label>Website <i>optional</i></label><input id="lw" placeholder="https://yourproject.fun"></div>
           <div class="f"><label>App / demo URL <i>optional</i></label><input id="la" placeholder="https://app.yourproject.xyz"></div>
           <div class="f"><label>Docs <i>optional</i></label><input id="ldoc" placeholder="https://docs.yourproject.xyz"></div>
           <div class="f"><label>X (Twitter) <i>optional</i></label><input id="lx" placeholder="https://x.com/yourproject"></div>
@@ -552,7 +553,7 @@ for(const [d,i] of [['#dimg','#fimg'],['#dvid','#fvid']]){ const el=$(d); el.ond
 async function launchSubmit(){
   $('#lerr').textContent=''; if(!$('#ln').value.trim()||!$('#lt').value.trim()) return $('#lerr').textContent='name and ticker are required';
   if(!$('#ld').value.trim()) return $('#lerr').textContent='describe what the tech does'; if(!imgData&&!EDITING) return $('#lerr').textContent='coin image is required';
-  const body={name:$('#ln').value,ticker:$('#lt').value,description:$('#ld').value,github:$('#lg').value,app_url:$('#la').value,docs_url:$('#ldoc').value,x_url:$('#lx').value,telegram:$('#ltg').value,video_url:$('#lv').value,onboarding:$('#lo').value,image:imgData,video:vidData,creator_wallet:WALLET};
+  const body={name:$('#ln').value,ticker:$('#lt').value,description:$('#ld').value,github:$('#lg').value,website:$('#lw').value,app_url:$('#la').value,docs_url:$('#ldoc').value,x_url:$('#lx').value,telegram:$('#ltg').value,video_url:$('#lv').value,onboarding:$('#lo').value,image:imgData,video:vidData,creator_wallet:WALLET};
   $('#lgo').disabled=true; $('#lgo').textContent='uploading…';
   const r=await fetch(EDITING?`/api/launch/${LID}/update`:'/api/launch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); const d=await r.json();
   $('#lgo').disabled=false; $('#lgo').textContent='Submit for AI audit'; $('#lcancel').hidden=true;
@@ -578,7 +579,7 @@ async function launchShow(){
       $('#l3').hidden=true; $('#lfix').hidden=false;
       $('#lfixwhy').innerHTML=`⛔ <b>${esc(L.eligibility_reason)}.</b>&nbsp; Nothing is lost — fix the items on the left and re-run; the audit is free to repeat.`;
       const todo=[...(a.would_change_verdict||[])];
-      if(!L.github&&!L.app_url&&!L.docs_url) todo.unshift('Add a link the agent can actually open: a GitHub repo, a live app URL, or docs. Right now there is nothing to test.');
+      if(!L.github&&!L.website&&!L.app_url&&!L.docs_url) todo.unshift('Add a link the agent can actually open: a GitHub repo, your website, a live app URL, or docs. Right now there is nothing to test.');
       if(!L.video_url&&!L.video_path) todo.push('Add a demo video (upload or YouTube/Loom link) showing the product working.');
       if((L.description||'').length<80) todo.push('Expand the description: say concretely what the product does, who uses it and how — vague text reads as a placeholder.');
       $('#lfixdo').innerHTML=li(todo);
@@ -599,7 +600,7 @@ let EDITING=false;
 function launchWatchReport(){ fetch('/api/launch/'+LID).then(r=>r.json()).then(L=>{ const t=L.audit&&L.audit.test_id; if(t){ setTab('test'); $('#watch').hidden=true; render(t); } }); }
 async function launchEdit(){
   const L=await (await fetch('/api/launch/'+LID)).json(); EDITING=true;
-  for(const [id,k] of [['#ln','name'],['#lt','ticker'],['#ld','description'],['#lg','github'],['#la','app_url'],['#ldoc','docs_url'],['#lx','x_url'],['#ltg','telegram'],['#lv','video_url'],['#lo','onboarding']]) $(id).value=L[k]||'';
+  for(const [id,k] of [['#ln','name'],['#lt','ticker'],['#ld','description'],['#lg','github'],['#lw','website'],['#la','app_url'],['#ldoc','docs_url'],['#lx','x_url'],['#ltg','telegram'],['#lv','video_url'],['#lo','onboarding']]) $(id).value=L[k]||'';
   imgData=null; vidData=null; if(L.image_path){ $('#dimg').innerHTML=`<img src="${esc(L.image_path)}">current image (click to replace)`; }
   if(L.video_path) $('#dvid').innerHTML=`current video (click to replace)`;
   $('#lgo').textContent='Save & re-run audit'; $('#lcancel').hidden=false; lstep(1); $('#lstep1').scrollIntoView({behavior:'smooth'});

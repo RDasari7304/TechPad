@@ -114,7 +114,7 @@ document.addEventListener('keydown',e=>{ if(!document.getElementById('findings')
   const score=a.score??0, R=52, C=2*Math.PI*R;
   FIND=[...(a.what_works||[]).map(t=>({k:'ok',l:'VERIFIED WORKING',ic:'✓',t})), ...(a.red_flags||[]).map(t=>({k:'flag',l:'RED FLAG',ic:'🚩',t}))];
   if(!FIND.length) FIND=[{k:'fix',l:'NOTE',ic:'ℹ️',t:'The audit produced no itemised findings.'}];
-  const links=[['🐙','GitHub',L.github],['🌐','App',L.app_url],['📚','Docs',L.docs_url],['𝕏','X',L.x_url],['✈️','Telegram',L.telegram],['🎬','Demo video',L.video_url]].filter(x=>x[2]);
+  const links=[['🌐','Website',L.website],['🐙','GitHub',L.github],['🧪','App',L.app_url],['📚','Docs',L.docs_url],['𝕏','X',L.x_url],['✈️','Telegram',L.telegram],['🎬','Demo video',L.video_url]].filter(x=>x[2]);
   const video = L.video_embed ? `<iframe src="${esc(L.video_embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe>` : L.video_path ? `<video controls src="${esc(L.video_path)}"></video>` : null;
 
   m.innerHTML=`

@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS launches (
   id TEXT PRIMARY KEY,
   name TEXT, ticker TEXT, description TEXT,
   image_path TEXT, video_url TEXT, video_path TEXT,
-  github TEXT, app_url TEXT, docs_url TEXT, x_url TEXT, telegram TEXT,
+  github TEXT, website TEXT, app_url TEXT, docs_url TEXT, x_url TEXT, telegram TEXT,
   onboarding TEXT, creator_wallet TEXT,
   status TEXT NOT NULL,              -- auditing | audited | launched | failed
   audit_test_id TEXT, mint TEXT, signature TEXT, metadata_uri TEXT,
@@ -49,6 +49,10 @@ class DB:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(SCHEMA)
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(launches)")}
+        if "website" not in cols:  # databases created before the website field existed
+            self._conn.execute("ALTER TABLE launches ADD COLUMN website TEXT")
+            self._conn.commit()
 
     def _run(self, sql: str, args: tuple = ()) -> sqlite3.Cursor:
         with self._lock:
@@ -123,8 +127,8 @@ class DB:
                 "spent_usd": round(total["s"], 2), "active": q["c"]}
 
     # --- launches ----------------------------------------------------------------
-    LAUNCH_COLS = ("name", "ticker", "description", "image_path", "video_url", "video_path", "github", "app_url",
-                   "docs_url", "x_url", "telegram", "onboarding", "creator_wallet")
+    LAUNCH_COLS = ("name", "ticker", "description", "image_path", "video_url", "video_path", "github", "website",
+                   "app_url", "docs_url", "x_url", "telegram", "onboarding", "creator_wallet")
 
     def create_launch(self, data: dict) -> str:
         lid = uuid.uuid4().hex[:12]
