@@ -1,0 +1,40 @@
+# Render blueprint: one web service with a persistent disk for the SQLite DB + uploads.
+services:
+  - type: web
+    name: techpad
+    runtime: docker
+    plan: standard          # needs >= 2 GB RAM for headless Chromium; "starter" will OOM under load
+    healthCheckPath: /api/status
+    disk:
+      name: techpad-data
+      mountPath: /app/data
+      sizeGB: 5
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set in the dashboard, never commit it
+      - key: LARPCHECK_PUBLIC_URL
+        value: https://techpad.xyz          # <-- your domain, with https://
+      - key: LARPCHECK_WORKERS
+        value: "4"
+      - key: LARPCHECK_MODEL
+        value: claude-sonnet-5-5
+      - key: LARPCHECK_BUDGET_USD
+        value: "1.50"
+      - key: LARPCHECK_QUICK_BUDGET_USD
+        value: "0.35"
+      - key: LARPCHECK_LAUNCH_MIN_SCORE
+        value: "50"
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: X_BOT_HANDLE
+        value: techpad
+      - key: X_BEARER_TOKEN
+        sync: false
+      - key: X_API_KEY
+        sync: false
+      - key: X_API_SECRET
+        sync: false
+      - key: X_ACCESS_TOKEN
+        sync: false
+      - key: X_ACCESS_SECRET
+        sync: false

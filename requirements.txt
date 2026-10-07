@@ -1,0 +1,5 @@
+starlette>=0.37
+uvicorn[standard]>=0.29
+requests>=2.31
+markdownify>=0.12
+playwright>=1.45

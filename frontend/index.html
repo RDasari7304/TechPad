@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TechPad — don't fall for larp</title>
+<style>
+  :root{--bg:#0a0b0d;--bg2:#101216;--panel:#15181d;--line:#242830;--text:#eef0f2;--muted:#8a919d;
+        --green:#86efac;--green2:#22c55e;--orange:#fbbf24;--yellow:#fde047;--red:#f87171;--blue:#60a5fa;
+        --mono:ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth} [hidden]{display:none!important}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden}
+  a{color:var(--green)}
+  code,.mono{font-family:var(--mono)}
+
+  /* ------------------------------------------------ HERO ------------------------------------------------ */
+  #hero{position:relative;height:100vh;min-height:620px;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;
+        background:radial-gradient(1200px 600px at 50% 110%,rgba(134,239,172,.12),transparent 60%),var(--bg)}
+  #hero canvas{position:absolute;inset:0;width:100%;height:100%}
+  .hero-inner{position:relative;z-index:2;padding:0 20px;max-width:900px}
+  .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(134,239,172,.35);background:rgba(134,239,172,.08);color:var(--green);
+         border-radius:999px;padding:6px 14px;font-size:13px;font-family:var(--mono);margin-bottom:22px}
+  .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--green2);box-shadow:0 0 12px var(--green2);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  h1.title{font-size:clamp(44px,8vw,96px);line-height:.95;margin:0 0 18px;letter-spacing:-2px;font-weight:800}
+  h1.title span{color:var(--green);text-shadow:0 0 40px rgba(134,239,172,.45)}
+  .tag{font-size:clamp(16px,2.3vw,22px);color:var(--muted);margin:0 auto 28px;max-width:640px}
+  .term{display:inline-block;text-align:left;background:rgba(0,0,0,.55);border:1px solid var(--line);border-radius:12px;padding:14px 18px;
+        font-family:var(--mono);font-size:14px;color:#c9d1d9;min-width:min(560px,92vw);backdrop-filter:blur(6px)}
+  .term .p{color:var(--green)}
+  .term .cursor{display:inline-block;width:8px;height:16px;background:var(--green);vertical-align:-3px;animation:pulse .9s infinite}
+  .cta{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{background:var(--green);color:#05140a;border:0;padding:12px 22px;border-radius:999px;font-weight:700;cursor:pointer;font-size:15px;text-decoration:none;display:inline-block}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .ticker{position:absolute;bottom:92px;left:0;right:0;z-index:2;overflow:hidden;white-space:nowrap;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+          background:rgba(10,11,13,.7);font-family:var(--mono);font-size:13px;padding:8px 0}
+  .ticker .track{display:inline-block;animation:marquee 40s linear infinite}
+  .ticker span{margin:0 28px}
+  @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .topnav{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:22px;padding:16px 28px;font-size:14px}
+  .topnav a{color:var(--muted);text-decoration:none} .topnav a:hover{color:var(--text)}
+  .topnav .brand{font-weight:800;color:var(--text);font-size:17px;margin-right:auto} .topnav .brand span{color:var(--green)}
+  .btn.small{padding:8px 16px;font-size:13px;color:#05140a}
+  @media (max-width:600px){.topnav{gap:12px;padding:12px 14px}.topnav a:not(.brand):not(.btn){display:none}}
+  .scroll-cue{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);z-index:2;color:var(--muted);font-size:12px;letter-spacing:2px;text-transform:uppercase;text-align:center;cursor:pointer}
+  .scroll-cue .arrow{display:block;width:26px;height:26px;margin:6px auto 0;border-right:3px solid var(--green);border-bottom:3px solid var(--green);transform:rotate(45deg);animation:bounce 1.6s infinite}
+  @keyframes bounce{0%,100%{transform:translateY(0) rotate(45deg);opacity:1}50%{transform:translateY(10px) rotate(45deg);opacity:.5}}
+
+  /* ------------------------------------------------ APP ------------------------------------------------ */
+  /* ---------- report ---------- */
+  .rep{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:16px}
+  .rep-head{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;padding:22px;border-bottom:1px solid var(--line)}
+  @media (max-width:700px){.rep-head{grid-template-columns:auto 1fr}.rep-head .meta{grid-column:1/-1}}
+  .gauge{position:relative;width:112px;height:112px}
+  .gauge svg{transform:rotate(-90deg)} .gauge circle{fill:none;stroke-width:9;stroke-linecap:round}
+  .gauge .bg{stroke:#23272e} .gauge .fg{transition:stroke-dashoffset 1s ease}
+  .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono)}
+  .gauge .num b{font-size:30px;line-height:1} .gauge .num small{color:var(--muted);font-size:10px;letter-spacing:1px}
+  .rep-title h2{margin:8px 0 6px;font-size:22px;line-height:1.25}
+  .rep-title .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-family:var(--mono)}
+  .verdict-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-weight:800;letter-spacing:1px;font-size:14px}
+  .meta{text-align:right;font-size:12px;color:var(--muted);line-height:1.9}
+  .meta b{color:var(--text);font-family:var(--mono)}
+  .conf{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .conf .bar{width:90px;height:6px;background:#23272e;border-radius:3px;overflow:hidden}
+  .conf .bar i{display:block;height:100%;background:var(--green)}
+  .rep-body{padding:22px;display:grid;gap:18px}
+  .callout{border-left:4px solid var(--yellow);background:rgba(253,224,71,.06);padding:14px 16px;border-radius:0 12px 12px 0;font-size:15.5px;line-height:1.6}
+  .callout.WORKS{border-color:var(--green);background:rgba(134,239,172,.06)} .callout.LARP{border-color:var(--red);background:rgba(248,113,113,.07)} .callout.PARTIAL{border-color:var(--orange);background:rgba(251,191,36,.06)}
+  .callout .sub{margin-top:8px;color:var(--muted);font-size:13px}
+  .sec h3{margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .sec h3 .n{background:#23272e;color:var(--text);border-radius:999px;padding:0 8px;font-size:11px}
+  .claims{display:grid;gap:8px}
+  .cl{display:grid;grid-template-columns:auto 1fr;gap:12px;background:#0f1114;border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:12px 14px;align-items:start}
+  .cl.WORKS{border-left-color:var(--green)} .cl.PARTIAL{border-left-color:var(--orange)} .cl.LARP{border-left-color:var(--red)} .cl.UNVERIFIED{border-left-color:var(--yellow)}
+  .cl .ic{font-size:20px;line-height:1.2} .cl .t{font-weight:600} .cl .ev{color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5}
+  .cl .st{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:2px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px} @media (max-width:700px){.two{grid-template-columns:1fr}}
+  .box{background:#0f1114;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .box h3{margin:0 0 8px} .box ul{list-style:none;padding:0;margin:0;display:grid;gap:7px} .box li{display:flex;gap:9px;line-height:1.45;font-size:14px}
+  .box li::before{flex:0 0 auto;font-family:var(--mono);font-weight:700} .box.ok li::before{content:'✓';color:var(--green)} .box.bad li::before{content:'✕';color:var(--red)}
+  .box.flag{border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.05)} .box.flag li::before{content:'🚩'}
+  .box.next{border-color:rgba(96,165,250,.35);background:rgba(96,165,250,.05)} .box.next li::before{content:'→';color:var(--blue)}
+  .box.dead li::before{content:'⛔'} .box.dead code{color:#fca5a5;word-break:break-all}
+  .box .none{color:var(--muted);font-size:13px}
+  .tweetbox{display:flex;gap:10px;align-items:flex-start;background:#0f1114;border:1px dashed var(--line);border-radius:12px;padding:12px 14px}
+  .tweetbox code{flex:1;white-space:pre-wrap;font-size:13px;line-height:1.5} .tweetbox button{background:#1c2027;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;flex:0 0 auto}
+  .foot{color:var(--muted);font-size:12px;font-family:var(--mono);display:flex;gap:14px;flex-wrap:wrap;padding-top:4px}
+
+  #app{max-width:1100px;margin:0 auto;padding:40px 16px 80px}
+  .tabs{position:sticky;top:0;z-index:5;display:flex;gap:6px;background:rgba(10,11,13,.85);backdrop-filter:blur(8px);padding:10px 0;margin-bottom:16px;border-bottom:1px solid var(--line)}
+  .tabs button{background:none;border:1px solid var(--line);color:var(--muted);padding:8px 18px;border-radius:999px;cursor:pointer;font-weight:600;display:flex;gap:8px;align-items:center}
+  .tabs button.on{color:#05140a;background:var(--green);border-color:var(--green)}
+  .tabs .count{background:rgba(0,0,0,.25);border-radius:999px;padding:0 8px;font-size:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  textarea,input,select{width:100%;background:#0c0e11;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:12px;font:inherit}
+  textarea{min-height:88px;resize:vertical}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .muted{color:var(--muted);font-size:13px}
+  h2{font-size:18px;margin:14px 0 6px} h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:16px 0 6px}
+  ul{margin:4px 0;padding-left:20px}
+  .pill{font-weight:700;padding:5px 12px;border-radius:999px;font-size:12px;letter-spacing:.5px;display:inline-block}
+  .pill.WORKS,.verdict-badge.WORKS{background:#113d27;color:var(--green)} .pill.PARTIAL,.verdict-badge.PARTIAL{background:#3d2a11;color:var(--orange)}
+  .pill.UNVERIFIED,.verdict-badge.UNVERIFIED{background:#3b3711;color:var(--yellow)} .pill.LARP,.verdict-badge.LARP{background:#3d1118;color:var(--red)}
+  .pill.error,.pill.queued,.pill.running,.verdict-badge.error{background:#2a2e36;color:#cbd5e1}
+  .score{font-family:var(--mono);font-size:30px;font-weight:700}
+  .claim{border-top:1px solid var(--line);padding:10px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase}
+  tr.link{cursor:pointer} tr.link:hover{background:#1a1e25}
+  details summary{cursor:pointer;color:var(--muted)}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .log{font-family:var(--mono);font-size:12.5px;background:#0c0e11;border:1px solid var(--line);border-radius:10px;padding:12px;height:100%;min-height:200px;max-height:420px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+
+  /* camera */
+  .cam-wrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+  .cam-wrap>div{min-width:0}
+  @media (max-width:800px){.cam-wrap{grid-template-columns:1fr}}
+  .cam{position:relative;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;aspect-ratio:16/10;min-height:0;display:flex;align-items:center;justify-content:center}
+  .cam img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+  .cam .hud{position:absolute;top:10px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:#fff;text-shadow:0 1px 3px #000;pointer-events:none;z-index:2}
+  .cam .rec{display:flex;gap:6px;align-items:center}
+  .cam .rec i{width:9px;height:9px;border-radius:50%;background:#ef4444;box-shadow:0 0 10px #ef4444;animation:pulse 1s infinite}
+  .cam .url{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.85));padding:22px 12px 10px;font-family:var(--mono);font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2}
+  .cam .scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px);pointer-events:none;z-index:1}
+  .cam .idle{color:var(--muted);font-family:var(--mono);font-size:13px;text-align:center;padding:20px}
+  .cam .idle b{display:block;font-size:40px;margin-bottom:8px}
+  .frame{position:absolute;inset:0;overflow:auto;padding:38px 18px 34px;background:#0c0e11;animation:fadein .35s}
+  @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .tweet{max-width:520px;margin:0 auto;background:#16181c;border:1px solid #2f3336;border-radius:16px;padding:16px;font-size:15px}
+  .tweet .who{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .tweet .av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--green),#0ea5e9);display:flex;align-items:center;justify-content:center;font-weight:800;color:#05140a}
+  .tweet .nm{font-weight:700} .tweet .hd{color:#71767b;font-size:14px}
+  .tweet .txt{white-space:pre-wrap;line-height:1.45}
+  .tweet .st{display:flex;gap:18px;color:#71767b;font-size:13px;margin-top:12px;border-top:1px solid #2f3336;padding-top:10px}
+  .termcard{font-family:var(--mono);font-size:12.5px;color:#c9d1d9;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+  .termcard .t{color:var(--green);font-weight:700;margin-bottom:6px;display:block}
+  .termcard .s{color:var(--blue);display:block;margin-bottom:8px}
+  .termcard .cd{background:#000;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;color:#e2e8f0}
+  .camctl{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .camctl button{background:#0c0e11;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:12px}
+  .camctl button:disabled{opacity:.35;cursor:default}
+  .camctl button.live{border-color:#ef4444;color:#fca5a5} .camctl button.live.on{background:#ef4444;color:#fff}
+  .camctl .ctr{margin-left:auto}
+  .cam .lbl{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);color:var(--green);font-family:var(--mono);font-size:11px;padding:3px 10px;border-radius:999px;z-index:2;pointer-events:none;letter-spacing:1px;text-transform:uppercase}
+  .strip{display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:4px}
+  .strip div{flex:0 0 auto;width:88px;height:56px;border:1px solid var(--line);border-radius:6px;background:#0c0e11;overflow:hidden;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;text-align:center;padding:4px}
+  .strip div.on{border-color:var(--green)} .strip img{width:100%;height:100%;object-fit:cover;object-position:top}
+  .status-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .phase{display:flex;gap:6px;font-family:var(--mono);font-size:11px}
+  .phase span{padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .phase span.on{border-color:var(--green);color:var(--green)} .phase span.done{color:var(--text);border-color:#3a4150}
+
+
+  /* launchpad */
+  .lform{display:grid;grid-template-columns:1.4fr 1fr;gap:16px} @media (max-width:800px){.lform{grid-template-columns:1fr}}
+  .f{display:grid;gap:6px;margin-bottom:12px} .f label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px} .f label i{font-style:normal;text-transform:none;letter-spacing:0;opacity:.7;margin-left:4px} .f input,.f textarea{margin:0}
+  #lo{min-height:120px}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .drop{border:1px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;background:#0c0e11;min-height:150px;display:flex;flex-direction:column;justify-content:center;align-items:center} .drop:hover{border-color:var(--green)} .drop img,.drop video{max-height:140px;max-width:100%;border-radius:10px;display:block;margin:0 auto 8px}
+  .prev{position:sticky;top:70px}
+  .prev .coin{display:flex;gap:14px;align-items:center;margin-bottom:12px} .prev .coin img{width:72px;height:72px;border-radius:16px;object-fit:cover;background:#0c0e11;border:1px solid var(--line)}
+  .aghost{width:72px;height:72px;border-radius:16px;background:#0c0e11;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;line-height:1.1;color:var(--muted);white-space:pre;text-align:center}
+  .drop .aghost{width:auto;height:auto;border:0;background:none;font-size:13px;margin-bottom:6px;color:var(--green)}
+  .drop.wide{min-height:190px} .drop.wide img{max-height:160px}
+  .aprog{height:6px;background:#0c0e11;border-radius:3px;overflow:hidden;margin:12px 0 8px} .aprog i{display:block;height:100%;background:var(--green);width:0;transition:width .9s linear}
+  .alog{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:pre-wrap;max-height:130px;overflow:auto}
+  .certcard{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:linear-gradient(135deg,rgba(134,239,172,.10),transparent 60%);border:1px solid rgba(134,239,172,.35);border-radius:14px;padding:18px}
+  .certcard .seal{width:92px;height:92px;border-radius:50%;border:3px solid var(--green);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);color:var(--green);font-weight:800;font-size:22px;line-height:1} .certcard .seal small{font-size:9px;letter-spacing:1px;font-weight:600}
+  .certcard h3{margin:0 0 4px;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}
+  .locked{display:flex;align-items:center;gap:10px;background:#0c0e11;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-family:var(--mono);font-size:13px;color:var(--muted)} .locked b{color:var(--text);font-weight:500;word-break:break-all} .locked .lk{margin-left:auto;font-size:11px;letter-spacing:1px;color:var(--green)}
+  .steps{display:flex;gap:6px;margin-bottom:16px;font-family:var(--mono);font-size:11px} .steps span{flex:1;text-align:center;padding:7px;border-radius:8px;border:1px solid var(--line);color:var(--muted)} .steps span.on{border-color:var(--green);color:var(--green)} .steps span.done{color:var(--text);background:#1a1e25}
+  .elig{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#0c0e11} .elig.ok{border-color:rgba(134,239,172,.4)} .elig.no{border-color:rgba(248,113,113,.4)}
+  .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .lcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;text-decoration:none;color:var(--text)} .lcard img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:#0c0e11} .lcard b{display:block} .lcard:hover{border-color:var(--green)}
+  .notice{font-size:13px;color:var(--muted);background:#0c0e11;border:1px solid var(--line);border-radius:10px;padding:10px 12px;line-height:1.5}
+  /* live rooms */
+  .rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .room{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .15s,border-color .15s}
+  .room:hover{transform:translateY(-2px);border-color:var(--green)}
+  .room .thumb{aspect-ratio:16/10;background:#000;display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:12px;position:relative}
+  .room .thumb img{width:100%;height:100%;object-fit:cover;object-position:top}
+  .room .live{position:absolute;top:8px;left:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:1px}
+  .room .eyes{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:2px 7px;border-radius:4px}
+  .room .body{padding:12px}
+  .room .body b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .empty{color:var(--muted);text-align:center;padding:40px 0;font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<!-- ============================ HERO ============================ -->
+<section id="hero">
+  <canvas id="fx"></canvas>
+  <div class="topnav"><a class="brand" href="#">🧪 Tech<span>Pad</span></a>
+    <a href="#app" onclick="setTab('test')">Test</a><a href="#app" onclick="setTab('live')">Live</a><a href="#app" onclick="setTab('archive')">Archive</a>
+    <a class="btn small" href="#app" onclick="setTab('launch')">🚀 Launch a coin</a></div>
+  <div class="hero-inner">
+    <div class="badge"><i class="dot"></i> AI-AUDITED TECH LAUNCHES · SOLANA</div>
+    <h1 class="title">Don't fall<br>for <span>larp.</span></h1>
+    <p class="tag" style="margin-bottom:12px;color:var(--text);font-weight:600">Make sure the tech works, then ape.</p>
+    <p class="tag">Drop a contract address or the project's X link and the agent opens the app, hits the API and runs the repo before you buy. Building something real? Give traders instant confidence and credibility for your tech by launching and acquiring an audit.</p>
+    <div class="term"><span class="p">techpad&gt;</span> <span id="typed"></span><span class="cursor"></span></div>
+    <div class="cta">
+      <a class="btn" href="#app" onclick="setTab('test')">Test a coin</a>
+      <a class="btn ghost" href="#app" onclick="setTab('live')">Watch live tests</a>
+      <a class="btn ghost" href="#app" onclick="setTab('launch')">🚀 Launch an audited coin</a>
+    </div>
+  </div>
+  <div class="ticker"><div class="track" id="ticker"><span>loading verdicts…</span></div></div>
+  <a class="scroll-cue" href="#app">scroll<span class="arrow"></span></a>
+</section>
+
+<!-- ============================ APP ============================ -->
+<section id="app">
+  <div class="tabs">
+    <button id="tab-test" class="on" onclick="setTab('test')">🧪 Test</button>
+    <button id="tab-live" onclick="setTab('live')">📡 Live <span class="count" id="livecount">0</span></button>
+    <button id="tab-archive" onclick="setTab('archive')">🗂 Archive</button>
+    <button id="tab-launch" onclick="setTab('launch')">🚀 Launch</button>
+  </div>
+
+  <!-- TEST -->
+  <div id="view-test">
+    <div class="card">
+      <textarea id="q" placeholder="Paste a contract address, the project's X link, or both:&#10;Check this out — 7xKX...pump https://x.com/project/status/123"></textarea>
+      <div class="row">
+        <button class="btn" id="go" onclick="submit()">Check it</button>
+        <label class="muted"><input type="checkbox" id="force" style="width:auto"> re-test even if archived</label>
+        <span class="muted" id="hint"></span>
+      </div>
+    </div>
+
+    <div class="card" id="watch" hidden>
+      <div class="status-line">
+        <strong id="wtitle">Working…</strong><span class="muted" id="wid"></span>
+        <span class="muted" id="wmode"></span>
+        <div class="phase" id="phases" style="margin-left:auto"><span data-p="research">research</span><span data-p="understand">understand</span><span data-p="test">test</span><span data-p="verdict">verdict</span></div>
+      </div>
+      <div class="cam-wrap">
+        <div>
+          <div class="cam" id="cam">
+            <div class="hud"><div class="rec"><i></i> BOT CAM</div><div id="camtime">00:00</div></div>
+            <div class="scan"></div>
+            <div class="lbl" id="camlbl" hidden></div>
+            <div class="idle" id="camidle"><b>🤖</b>waiting for the agent to open something…</div>
+            <div class="url" id="camurl"></div>
+          </div>
+          <div class="camctl">
+            <button id="cprev" onclick="camGo(cur-1)">◀ back</button>
+            <button id="cnext" onclick="camGo(cur+1)">next ▶</button>
+            <button id="clive" class="live on" onclick="camGo(-1)">⏺ LIVE</button>
+            <span class="ctr" id="cctr">0 / 0</span>
+          </div>
+          <div class="strip" id="strip"></div>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+    <div id="result"></div>
+  </div>
+
+  <!-- LIVE -->
+  <div id="view-live" hidden>
+    <p class="muted" style="margin:0 0 14px">Tests other people are running right now. Join a room to watch the bot cam and log in real time.</p>
+    <div class="rooms" id="rooms"></div>
+    <div class="empty" id="noliv" hidden>no tests running right now — start one in the Test tab</div>
+  </div>
+
+  <!-- LAUNCH -->
+  <div id="view-launch" hidden>
+    <div class="steps"><span id="s1" class="on">1 · DETAILS</span><span id="s2">2 · AI AUDIT</span><span id="s3">3 · DEPLOY ON PUMP.FUN</span><span id="s4">4 · LIVE</span></div>
+
+    <div id="lstep1">
+      <div class="card">
+        <div class="f2"><div class="f"><label>Coin name</label><input id="ln" maxlength="32" placeholder="Name your coin"></div><div class="f"><label>Ticker</label><input id="lt" maxlength="10" placeholder="e.g. AGENT"></div></div>
+        <div class="f"><label>What does the tech do? (required)</label><textarea id="ld" placeholder="Plain-English description. The agent treats this as a claim and tests it."></textarea></div>
+        <div class="f"><label>Coin image (required)</label><div class="drop wide" id="dimg" onclick="$('#fimg').click()"><div class="aghost"> .-.
+( o o )
+|  O  |
+'~~~~~'</div>click or drop an image<br><small>png / jpg / gif / webp · square works best</small></div><input type="file" id="fimg" accept="image/*" hidden></div>
+        <div class="f2">
+          <div class="f"><label>GitHub repo <i>optional</i></label><input id="lg" placeholder="https://github.com/you/repo"></div>
+          <div class="f"><label>App / demo URL <i>optional</i></label><input id="la" placeholder="https://app.yourproject.xyz"></div>
+          <div class="f"><label>Docs <i>optional</i></label><input id="ldoc" placeholder="https://docs.yourproject.xyz"></div>
+          <div class="f"><label>X (Twitter) <i>optional</i></label><input id="lx" placeholder="https://x.com/yourproject"></div>
+          <div class="f"><label>Telegram <i>optional</i></label><input id="ltg" placeholder="https://t.me/yourproject"></div>
+          <div class="f"><label>Demo video link <i>optional</i></label><input id="lv" placeholder="YouTube / Loom / Vimeo URL (or upload below)"></div>
+        </div>
+        <div class="f"><label>Demo video upload <i>optional</i></label><div class="drop" id="dvid" onclick="$('#fvid').click()">click or drop a video<br><small>mp4 / webm · up to 40 MB</small></div><input type="file" id="fvid" accept="video/mp4,video/webm,video/quicktime" hidden></div>
+        <div class="f"><label>Onboarding instructions for users <i>markdown · optional</i></label><textarea id="lo" placeholder="## Getting started&#10;1. Connect your wallet at …&#10;2. Run `npm i yourpkg` …"></textarea></div>
+        <div class="f"><label>Website (locked to your coin page)</label><div class="locked">🔒 <b id="siteprev">yoursite/coin/&lt;CA&gt;</b><span class="lk">LOCKED</span></div></div>
+        <div class="notice" id="lrules">On pump.fun the website link opens your coin's page here: demo video, audit certificate, what it does, onboarding. <code>&lt;CA&gt;</code> is filled in with the mint at deploy. The audit is a ~30 s check of the one most decisive thing (your app, repo or docs); you deploy when the agent is at least <b>50%</b> confident the product is real. Creator rewards go to the deploying wallet (pump.fun's own mechanism).</div>
+        <div class="row"><button class="btn" id="lgo" onclick="launchSubmit()">Submit for AI audit</button><button class="btn ghost" id="lcancel" onclick="launchShow()" hidden>cancel edit</button><span class="muted" id="lerr"></span></div>
+      </div>
+    </div>
+
+    <div id="lstep2" hidden>
+      <div class="card">
+        <div class="row" style="margin-top:0"><strong id="l2title">Auditing…</strong><span class="muted" id="l2id"></span><span class="muted mono" id="l2clock" style="margin-left:auto"></span></div>
+        <div id="l2audit" style="margin-top:6px"><div class="aprog"><i id="l2bar"></i></div><div class="alog" id="l2log"></div></div>
+      </div>
+      <div class="card" id="lfix" hidden>
+        <h3 style="margin-top:0">Not eligible yet — here's what to change</h3>
+        <div class="elig no" id="lfixwhy"></div>
+        <div class="two" style="margin-top:12px">
+          <div class="box next"><h3>Do this, then re-run the audit</h3><div id="lfixdo"></div></div>
+          <div class="box bad"><h3>What the agent found broken or missing</h3><div id="lfixbad"></div></div>
+        </div>
+        <div id="lfixdead"></div>
+        <div class="row"><button class="btn" onclick="launchEdit()">✏️ Edit submission &amp; re-audit</button><button class="btn ghost" onclick="reaudit()">re-run audit as is</button><button class="btn ghost" onclick="launchWatchReport()">view full report</button></div>
+      </div>
+      <div class="card" id="l3" hidden>
+        <h3 style="margin-top:0">Deploy on pump.fun</h3>
+        <div id="elig" class="elig ok">✅ <b>Eligible.</b> This launch will carry a TechPad audit certificate.</div>
+        <div class="f2" style="margin-top:12px">
+          <div class="f"><label>Dev buy (SOL, optional)</label><input id="ldev" type="number" min="0" step="0.01" value="0"></div>
+          <div class="f"><label>Slippage %</label><input id="lslip" type="number" min="1" max="50" value="10"></div>
+        </div>
+        <div class="row"><button class="btn" id="lconnect" onclick="connectWallet()">Connect Phantom</button><span class="muted mono" id="lwallet"></span></div>
+        <div class="row"><button class="btn" id="ldeploy" onclick="deploy()" disabled>🚀 Deploy</button><button class="btn ghost" onclick="launchEdit()">edit submission</button><span class="muted" id="lstatus"></span></div>
+        <div class="notice" style="margin-top:12px">Your browser generates the mint keypair and signs with your wallet; the server never holds keys. Metadata goes to pump.fun's IPFS with the website set to your coin page here; the create transaction is built by PumpPortal (pump.fun protocol, "pump" pool).</div>
+      </div>
+      <div class="card" id="l4" hidden></div>
+      <button class="btn ghost" onclick="launchReset()">start another launch</button>
+    </div>
+
+    <h3 style="margin-top:28px">Launched through TechPad</h3>
+    <div class="lgrid" id="lgrid"></div><div class="empty" id="lnone" hidden>no audited launches yet</div>
+  </div>
+
+  <!-- ARCHIVE -->
+  <div id="view-archive" hidden>
+    <div class="card">
+      <div class="row" style="margin-top:0">
+        <input id="aq" placeholder="search by CA, name or X handle" style="flex:1">
+        <select id="av" style="width:auto"><option value="">all verdicts</option><option>WORKS</option><option>PARTIAL</option><option>UNVERIFIED</option><option>LARP</option></select>
+        <button class="btn" onclick="loadArchive()">Search</button>
+      </div>
+      <div class="stats" id="astats" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><table id="atable"><thead><tr><th>When</th><th>Verdict</th><th>Score</th><th>Project</th><th>CA / link</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<script>
+const $ = s => document.querySelector(s);
+const E = {WORKS:'🟢',PARTIAL:'🟠',UNVERIFIED:'🟡',LARP:'🔴'};
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------------------------------------------------------------- hero FX ---- */
+(function(){
+  const c = $('#fx'), ctx = c.getContext('2d'); let W,H,t=0;
+  const coins=[], TICK=['PUMP','AI','AGENT','DEPIN','BOT','SOL','GPT','RPC','API','LARP','DEV','WAGMI','GPU','NODE'];
+  const rain=[]; const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  function resize(){ W=c.width=c.clientWidth*devicePixelRatio; H=c.height=c.clientHeight*devicePixelRatio; ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    coins.length=0; for(let i=0;i<22;i++) coins.push(mk(true));
+    rain.length=0; for(let x=0;x<c.clientWidth;x+=26) rain.push({x, y:Math.random()*c.clientHeight, v:.6+Math.random()*1.4, s:''}); }
+  function mk(any){ return {x:Math.random()*c.clientWidth, y:any?Math.random()*c.clientHeight:c.clientHeight+40, r:16+Math.random()*22, v:.25+Math.random()*.6, w:(Math.random()-.5)*.02, a:Math.random()*6, tk:TICK[Math.random()*TICK.length|0], g:Math.random()>.5}; }
+  // bonding curve points
+  function curve(p){ const pts=[]; for(let i=0;i<=120;i++){ const u=i/120; pts.push([u, Math.pow(u,2.6)]); } return pts; }
+  const CV=curve();
+  function draw(){
+    t+=1; const w=c.clientWidth, h=c.clientHeight; ctx.clearRect(0,0,w,h);
+    // CA rain
+    ctx.font='11px ui-monospace,Menlo,monospace';
+    for(const r of rain){ r.y+=r.v; if(r.y>h){r.y=-20;} if(t%6===0) r.s=B58[Math.random()*B58.length|0];
+      ctx.fillStyle='rgba(134,239,172,'+(0.05+0.12*Math.abs(Math.sin(r.x+t/60)))+')'; ctx.fillText(r.s||B58[r.x%58|0], r.x, r.y); }
+    // bonding curve + candles
+    const prog=(t%520)/520, cx0=w*0.08, cy0=h*0.82, cw=w*0.84, ch=h*0.45;
+    ctx.beginPath(); ctx.lineWidth=2; ctx.strokeStyle='rgba(134,239,172,.55)';
+    for(let i=0;i<=CV.length*prog;i++){ const [u,v]=CV[i]; const x=cx0+u*cw, y=cy0-v*ch; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+    ctx.stroke();
+    const gi=Math.floor(CV.length*prog); if(CV[gi]){ const [u,v]=CV[gi]; const x=cx0+u*cw,y=cy0-v*ch; ctx.beginPath(); ctx.arc(x,y,5+2*Math.sin(t/4),0,7); ctx.fillStyle='#86efac'; ctx.shadowColor='#86efac'; ctx.shadowBlur=18; ctx.fill(); ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(134,239,172,.9)'; ctx.font='bold 11px ui-monospace,monospace'; ctx.fillText('mcap '+Math.round(5+v*95)+'k', x+10, y-8); }
+    for(let i=0;i<28;i++){ const u=i/28; if(u>prog) break; const x=cx0+u*cw; const base=cy0-Math.pow(u,2.6)*ch; const o=Math.sin(i*7.3+t/30)*9, cl=Math.cos(i*3.1+t/40)*9;
+      const up=cl>o; ctx.fillStyle=up?'rgba(74,222,128,.35)':'rgba(248,113,113,.35)'; ctx.fillRect(x-3, base-Math.max(o,cl), 6, Math.abs(o-cl)+2); }
+    // coins
+    for(let i=0;i<coins.length;i++){ const k=coins[i]; k.y-=k.v; k.a+=k.w; k.x+=Math.sin(t/50+i)*.2; if(k.y<-50) coins[i]=mk(false);
+      ctx.save(); ctx.translate(k.x,k.y); ctx.rotate(Math.sin(k.a)*.3); const sq=Math.abs(Math.cos(k.a));
+      ctx.scale(Math.max(.15,sq),1); ctx.beginPath(); ctx.arc(0,0,k.r,0,7); ctx.fillStyle=k.g?'rgba(134,239,172,.16)':'rgba(96,165,250,.14)'; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle=k.g?'rgba(134,239,172,.6)':'rgba(96,165,250,.55)'; ctx.stroke();
+      ctx.fillStyle=k.g?'#86efac':'#93c5fd'; ctx.font='bold '+Math.round(k.r*.55)+'px ui-monospace,monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('$'+k.tk,0,1); ctx.restore(); }
+    requestAnimationFrame(draw);
+  }
+  addEventListener('resize',resize); resize(); draw();
+  // typing terminal
+  const lines=['test 7GCihgDB8fe6...W2hr','reading x.com/project — 14 claims found','browser_goto https://app.project.xyz … HTTP 200','http_request POST /api/agent/run … 500 Internal Server Error','github_inspect project/core — fork, 0 commits since fork','verdict: 🔴 LARP  score 12/100'];
+  let li=0,ci=0; (function type(){ const L=lines[li]; $('#typed').textContent=L.slice(0,ci); if(ci<L.length){ci++; setTimeout(type,28+Math.random()*40);} else {setTimeout(()=>{ci=0;li=(li+1)%lines.length;type();},1500);} })();
+})();
+
+/* ---------------------------------------------------------------- tabs ---- */
+function setTab(tab){
+  for(const t of ['test','live','archive','launch']){ $('#view-'+t).hidden = t!==tab; $('#tab-'+t).classList.toggle('on', t===tab); }
+  if(tab==='archive') loadArchive(); if(tab==='live') loadRooms(); if(tab==='launch') launchInit();
+}
+
+/* ---------------------------------------------------------------- camera / watch ---- */
+let es=null, frames=[], camStart=0, camTimer=null, watching=null, cur=-1; // cur=-1 means "follow live"
+function resetWatch(title, id, mode){
+  frames=[]; cur=-1; $('#strip').innerHTML=''; $('#log').textContent=''; $('#camurl').textContent=''; $('#camlbl').hidden=true; camCtl();
+  $('#camidle').hidden=false; [...$('#cam').querySelectorAll('.frame,img')].forEach(e=>e.remove());
+  $('#watch').hidden=false; $('#wtitle').textContent=title; $('#wid').textContent='#'+id; $('#wmode').textContent=mode||'';
+  $('#phases').querySelectorAll('span').forEach(s=>s.className='');
+  camStart=Date.now(); clearInterval(camTimer); camTimer=setInterval(()=>{const s=(Date.now()-camStart)/1000|0; $('#camtime').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0');},500);
+  $('#result').innerHTML='';
+}
+function logLine(ev){
+  const L=$('#log'); let s='';
+  if(ev.kind==='phase'){ s=`▶ ${ev.name}: ${ev.msg||''}`; const ps=[...$('#phases').querySelectorAll('span')]; let hit=false; ps.forEach(p=>{ if(p.dataset.p===ev.name){p.className='on';hit=true;} else p.className=hit?'':'done'; }); }
+  else if(ev.kind==='log') s=`  - ${ev.msg}`;
+  else if(ev.kind==='tool') s=`  🔧 ${ev.name} ${JSON.stringify(ev.input||{}).slice(0,120)}`;
+  else if(ev.kind==='claims') s=`  found ${ev.count} claims for ${ev.project||''}`;
+  else if(ev.kind==='queued'||ev.kind==='started') s=`${ev.msg||ev.kind}`;
+  else if(ev.kind==='error') s=`!! ${ev.msg}`;
+  else if(ev.kind==='done') s=`✔ done`;
+  if(s){ L.textContent+=s+'\n'; L.scrollTop=L.scrollHeight; }
+}
+function renderFrame(f){
+  const cam=$('#cam'); $('#camidle').hidden=true; [...cam.querySelectorAll('.frame,img')].forEach(e=>e.remove());
+  let el;
+  const lb=$('#camlbl'); lb.hidden=!f.label; lb.textContent=f.label||'';
+  if(f.type==='screenshot'){ el=document.createElement('img'); el.src='data:image/jpeg;base64,'+f.jpeg; $('#camurl').textContent=(f.title?f.title+' — ':'')+(f.url||''); }
+  else { el=document.createElement('div'); el.className='frame';
+    if(f.type==='tweet'){ const d=f.data||{}, a=d.author||d; const name=a.name||d.name||'', h=a.handle||d.screen_name||'';
+      el.innerHTML=`<div class="tweet"><div class="who"><div class="av">${esc((name||'?')[0]).toUpperCase()}</div><div><div class="nm">${esc(name)}</div><div class="hd">@${esc(h)} · ${esc(a.followers??d.followers??'?')} followers</div></div></div>
+        <div class="txt">${esc(d.text||d.description||'')}</div>${d.quote?`<div class="hd" style="margin-top:8px;border:1px solid #2f3336;border-radius:10px;padding:8px">${esc(d.quote)}</div>`:''}
+        <div class="st">${d.likes!=null?`<span>❤ ${esc(d.likes)}</span><span>🔁 ${esc(d.retweets)}</span><span>💬 ${esc(d.replies)}</span><span>👁 ${esc(d.views)}</span>`:`<span>${esc(d.tweets??'')} posts</span><span>joined ${esc(d.joined||'')}</span>`}</div></div>`;
+      $('#camurl').textContent='x.com/'+h; }
+    else if(f.type==='code'){ el.innerHTML=`<div class="termcard"><span class="t">▶ ${esc(f.title)}</span><div class="cd">${esc(f.code)}</div>${esc(f.body)}</div>`; $('#camurl').textContent='sandbox'; }
+    else if(f.type==='github'){ el.innerHTML=`<div class="termcard"><span class="t">🐙 github.com/${esc(f.title)}</span>${esc(f.body)}</div>`; $('#camurl').textContent='github.com/'+f.title; }
+    else { el.innerHTML=`<div class="termcard"><span class="t">${esc(f.title)}</span><span class="s">${esc(f.status||'')}</span>${esc(f.body)}</div>`; $('#camurl').textContent=f.title||''; }
+  }
+  cam.insertBefore(el, $('#camurl'));
+}
+function addFrame(f){
+  frames.push(f); if(frames.length>60){ frames.shift(); $('#strip').firstChild?.remove(); if(cur>0) cur--; }
+  const strip=$('#strip'); const d=document.createElement('div');
+  d.innerHTML = f.type==='screenshot' ? `<img src="data:image/jpeg;base64,${f.jpeg}" title="${esc(f.label||f.url||'')}">` : (f.type==='tweet'?'🐦 tweet':f.type==='code'?'⌨ code':f.type==='github'?'🐙 repo':'⇄ '+(f.status||'http').slice(0,14));
+  d.onclick=()=>camGo([...strip.children].indexOf(d));
+  strip.appendChild(d);
+  if(cur===-1){ showIdx(frames.length-1); strip.scrollLeft=strip.scrollWidth; } else camCtl();
+}
+function showIdx(i){
+  if(!frames.length) return; i=Math.max(0,Math.min(i,frames.length-1));
+  renderFrame(frames[i]); const kids=$('#strip').children; [...kids].forEach((k,j)=>k.classList.toggle('on',j===i)); kids[i]?.scrollIntoView({block:'nearest',inline:'nearest'}); camCtl(i);
+}
+function camGo(i){ // i=-1 → live mode (follow newest)
+  if(i===-1||i>=frames.length-1){ cur=-1; showIdx(frames.length-1); return; }
+  cur=i; showIdx(i);
+}
+function camCtl(i){
+  const n=frames.length, at=(cur===-1)?n-1:cur;
+  $('#cprev').disabled=at<=0; $('#cnext').disabled=cur===-1||at>=n-1;
+  $('#clive').classList.toggle('on',cur===-1); $('#cctr').textContent=n?`${at+1} / ${n}${cur===-1?' · live':''}`:'0 / 0';
+}
+document.addEventListener('keydown',e=>{ if($('#watch').hidden||e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return; if(e.key==='ArrowLeft') camGo((cur===-1?frames.length-1:cur)-1); if(e.key==='ArrowRight') camGo((cur===-1?frames.length-1:cur)+1); if(e.key==='End') camGo(-1); });
+function watch(id){
+  if(es) es.close(); watching=id;
+  es=new EventSource(`/api/tests/${id}/stream`);
+  es.onmessage=e=>{ const ev=JSON.parse(e.data); if(ev.kind==='frame') addFrame(ev); else logLine(ev); if(ev.kind==='done'){ es.close(); watching=null; clearInterval(camTimer); render(id); } };
+  es.onerror=()=>{ es.close(); setTimeout(()=>render(id),1500); };
+}
+async function submit(){
+  const text=$('#q').value.trim(); if(!text) return;
+  $('#go').disabled=true;
+  const r=await fetch('/api/tests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text,force:$('#force').checked})});
+  const d=await r.json();
+  if(d.error){ $('#hint').textContent=d.error; $('#go').disabled=false; return; }
+  location.hash='t/'+d.id;
+  if(d.status==='done'){ $('#go').disabled=false; $('#watch').hidden=true; $('#hint').textContent='already tested — showing archived result'; return render(d.id); }
+  resetWatch('Testing…', d.id, d.status==='attached'?'(someone already requested this — joined their run)':'');
+  watch(d.id);
+}
+function join(id, project){ setTab('test'); resetWatch('Spectating '+(project||''), id, '👀 live room'); watch(id); location.hash='t/'+id; $('#watch').scrollIntoView({behavior:'smooth'}); }
+
+async function render(id){
+  const row=await (await fetch('/api/tests/'+id)).json(); $('#go').disabled=false;
+  if(row.status==='queued'||row.status==='running'){ if(watching!==id){ resetWatch('Watching…', id, ''); watch(id);} return; }
+  $('#wtitle').textContent='Finished'; clearInterval(camTimer);
+  const res=row.result||{}, v=res.verdict||{}, u=res.understanding||{}, t=res.tests||{};
+  const st=Object.fromEntries((t.claim_results||[]).map(c=>[c.id,c]));
+  const V=v.verdict||'error', COL={WORKS:'var(--green)',PARTIAL:'var(--orange)',UNVERIFIED:'var(--yellow)',LARP:'var(--red)'}[V]||'#9aa4b2';
+  const score=v.score??0, R=48, C=2*Math.PI*R, off=C*(1-score/100);
+  const kind=r=>{const x=(r.status||'').toUpperCase(); return x==='WORKS'?'WORKS':(x==='FAKE'||x==='BROKEN')?'LARP':x==='PARTIAL'?'PARTIAL':'UNVERIFIED';};
+  const ICON={WORKS:'✅',PARTIAL:'⚠️',LARP:'❌',UNVERIFIED:'❔'};
+  const ul=(arr,empty)=>arr&&arr.length?`<ul>${arr.map(x=>`<li><span>${esc(x)}</span></li>`).join('')}</ul>`:`<div class="none">${empty}</div>`;
+  const tested=(u.claims||[]).length, worked=(u.claims||[]).filter(c=>kind(st[c.id]||{})==='WORKS').length;
+  $('#result').innerHTML=`<div class="rep">
+    <div class="rep-head">
+      <div class="gauge"><svg width="112" height="112"><circle class="bg" cx="56" cy="56" r="${R}"/><circle class="fg" cx="56" cy="56" r="${R}" stroke="${COL}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg>
+        <div class="num"><b style="color:${COL}">${v.score??'–'}</b><small>SCORE</small></div></div>
+      <div class="rep-title">
+        <span class="verdict-badge ${V}">${E[V]||'⚪'} ${esc(V)}</span>
+        <h2>${esc(v.headline||res.error||'No verdict')}</h2>
+        <div class="chips"><span class="chip">${esc(res.project_name||'')}</span>${u.category?`<span class="chip">${esc(u.category)}</span>`:''}${u.detail_level?`<span class="chip">detail: ${esc(u.detail_level)}</span>`:''}${tested?`<span class="chip">${worked}/${tested} claims worked</span>`:''}</div>
+      </div>
+      <div class="meta"><div class="conf"><span>confidence</span><div class="bar"><i style="width:${v.confidence??0}%"></i></div><b>${v.confidence??'–'}%</b></div>
+        <div><b>${res.seconds||0}s</b> · <b>${res.tool_calls||0}</b> tool calls · <b>$${res.cost_usd||0}</b></div></div>
+    </div>
+    <div class="rep-body">
+      ${res.error?`<div class="callout LARP">⚠️ ${esc(res.error)}</div>`:''}
+      ${v.summary?`<div class="callout ${V}">${esc(v.summary)}${u.one_liner?`<div class="sub"><b>Claims to be:</b> ${esc(u.one_liner)}</div>`:''}</div>`:''}
+      ${tested?`<div class="sec"><h3>Claims we tried <span class="n">${tested}</span></h3><div class="claims">${(u.claims||[]).map(c=>{const r=st[c.id]||{},k=kind(r);return `<div class="cl ${k}"><div class="ic">${ICON[k]}</div><div><div class="st">${esc(r.status||'UNTESTED')}${c.importance==='core'?' · CORE':''}</div><div class="t">${esc(c.claim)}</div>${r.evidence?`<div class="ev">${esc(r.evidence)}</div>`:''}</div></div>`}).join('')}</div></div>`:''}
+      <div class="two">
+        <div class="box ok"><h3>What works</h3>${ul(v.what_works,'nothing could be shown working')}</div>
+        <div class="box bad"><h3>What doesn't</h3>${ul(v.what_doesnt,'no failures observed')}</div>
+      </div>
+      <div class="two">
+        <div class="box flag"><h3>Red flags</h3>${ul(v.red_flags,'none found')}</div>
+        <div class="box next"><h3>What would change the verdict</h3>${ul(v.would_change_verdict,'—')}</div>
+      </div>
+      ${(res.dead_links||[]).length?`<div class="box dead"><h3>Advertised links that were unreachable</h3><ul>${res.dead_links.map(x=>`<li><span><code>${esc(x.url)}</code><br><span class="muted">${esc((x.why||'').slice(0,140))}</span></span></li>`).join('')}</ul></div>`:''}
+      ${v.tweet?`<div class="sec"><h3>Tweet-sized verdict</h3><div class="tweetbox"><code id="tw">${esc(v.tweet.replace('{url}',location.origin+'/#t/'+row.id))}</code><button onclick="navigator.clipboard.writeText($('#tw').textContent);this.textContent='copied'">copy</button></div></div>`:''}
+      <details><summary>Full tool transcript (${(res.transcript||[]).length} calls)</summary><div class="log" style="min-height:0;margin-top:8px">${(res.transcript||[]).map(x=>`🔧 ${esc(x.tool)} ${esc(JSON.stringify(x.input)).slice(0,200)}\n${esc((x.output||'').slice(0,600))}\n`).join('\n')}</div></details>
+      <div class="foot"><span>${esc(res.model||'')}</span><span>${res.llm_calls||0} LLM calls</span><span>${esc(row.ca||row.x_url||'')}</span><span>id ${row.id}</span></div>
+    </div></div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{const fg=$('#result .fg'); if(fg) fg.style.strokeDashoffset=off;}));
+  $('#result').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ---------------------------------------------------------------- live rooms ---- */
+async function loadRooms(){
+  const d=await (await fetch('/api/live')).json(); const rooms=d.rooms||[];
+  $('#livecount').textContent=rooms.length; $('#noliv').hidden=rooms.length>0;
+  $('#rooms').innerHTML=rooms.map(r=>{ const f=r.last_frame; const m=Math.floor((r.elapsed||0)/60), s=Math.floor((r.elapsed||0)%60);
+    return `<div class="room" onclick="join('${r.id}','${esc(r.project||'')}')">
+      <div class="thumb">${f&&f.jpeg?`<img src="data:image/jpeg;base64,${f.jpeg}">`:`<span>${r.status==='queued'?'⏳ in queue':f?('⇄ '+esc(f.title||f.type)):'🤖 starting…'}</span>`}
+        <span class="live">${r.status==='queued'?'QUEUED':'LIVE'}</span><span class="eyes">👁 ${r.viewers}</span></div>
+      <div class="body"><b>${esc(r.project||r.key)}</b><div class="muted">${esc(r.phase||'queued')}${r.phase_msg?' · '+esc(r.phase_msg):''} · ${m}:${String(s).padStart(2,'0')}</div></div></div>`;}).join('');
+}
+setInterval(()=>{ if(!$('#view-live').hidden) loadRooms(); else fetch('/api/live').then(r=>r.json()).then(d=>$('#livecount').textContent=(d.rooms||[]).length).catch(()=>{}); }, 3000);
+
+
+/* ---------------------------------------------------------------- launchpad ---- */
+let LCFG=null, LID=localStorage.getItem('techpad_launch')||null, lpoll=null, WALLET=null, imgData=null, vidData=null;
+async function launchInit(){
+  if(!LCFG){ LCFG=await (await fetch('/api/launch/config')).json(); $('#siteprev').textContent=LCFG.public_url+'/coin/<CA>'; }
+  LID=LID||localStorage.getItem('techpad_launch'); loadLaunches(); if(LID) launchShow(); else lstep(1);
+}
+function readFile(input, drop, kind){
+  const f=input.files[0]; if(!f) return;
+  const max=(kind==='image'?LCFG.max_image_mb:LCFG.max_video_mb)*1024*1024; if(f.size>max) return alert(`${kind} is larger than ${max/1048576} MB`);
+  const r=new FileReader(); r.onload=()=>{ if(kind==='image'){ imgData=r.result; drop.innerHTML=`<img src="${r.result}">${f.name}`; } else { vidData=r.result; drop.innerHTML=`<video src="${r.result}" muted></video>${f.name}`; } }; r.readAsDataURL(f);
+}
+$('#fimg').onchange=e=>readFile(e.target,$('#dimg'),'image'); $('#fvid').onchange=e=>readFile(e.target,$('#dvid'),'video');
+for(const [d,i] of [['#dimg','#fimg'],['#dvid','#fvid']]){ const el=$(d); el.ondragover=e=>{e.preventDefault();el.style.borderColor='var(--green)'}; el.ondragleave=()=>el.style.borderColor=''; el.ondrop=e=>{e.preventDefault(); $(i).files=e.dataTransfer.files; $(i).dispatchEvent(new Event('change'));}; }
+async function launchSubmit(){
+  $('#lerr').textContent=''; if(!$('#ln').value.trim()||!$('#lt').value.trim()) return $('#lerr').textContent='name and ticker are required';
+  if(!$('#ld').value.trim()) return $('#lerr').textContent='describe what the tech does'; if(!imgData&&!EDITING) return $('#lerr').textContent='coin image is required';
+  const body={name:$('#ln').value,ticker:$('#lt').value,description:$('#ld').value,github:$('#lg').value,app_url:$('#la').value,docs_url:$('#ldoc').value,x_url:$('#lx').value,telegram:$('#ltg').value,video_url:$('#lv').value,onboarding:$('#lo').value,image:imgData,video:vidData,creator_wallet:WALLET};
+  $('#lgo').disabled=true; $('#lgo').textContent='uploading…';
+  const r=await fetch(EDITING?`/api/launch/${LID}/update`:'/api/launch',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); const d=await r.json();
+  $('#lgo').disabled=false; $('#lgo').textContent='Submit for AI audit'; $('#lcancel').hidden=true;
+  if(d.error) return $('#lerr').textContent=d.error;
+  EDITING=false; LID=d.id; localStorage.setItem('techpad_launch',LID); launchShow();
+}
+function lstep(n){ for(let i=1;i<=4;i++){ const el=$('#s'+i); el.className=i<n?'done':i===n?'on':''; } $('#lstep1').hidden=n>1; $('#lstep2').hidden=n<2; }
+async function launchShow(){
+  const r=await fetch('/api/launch/'+LID); if(!r.ok){ launchReset(); return; } const L=await r.json(); const a=L.audit||{};
+  lstep(L.status==='launched'?4:(a.status==='done'&&L.eligible)?3:2);
+  $('#l2id').textContent='#'+LID+' · '+L.name+' ($'+L.ticker+')';
+  const li=x=>(x||[]).length?`<ul>${x.map(t=>`<li><span>${esc(t)}</span></li>`).join('')}</ul>`:'<div class="none">—</div>';
+  if(a.status==='done'||a.status==='error'){
+    clearInterval(lpoll); lpoll=null; stopAuditStream();
+    $('#l2clock').textContent='';
+    if(L.eligible){
+      $('#l2title').textContent='Audit complete';
+      $('#l2audit').innerHTML=`<div class="certcard"><div class="seal">${a.score}<small>/100</small></div><div><h3>✅ Tech verified — ${esc(a.verdict)}</h3><div class="muted" style="margin-bottom:6px">${esc(a.headline||'')}</div><div style="font-size:14px">${esc(a.summary||'')}</div><div class="muted" style="margin-top:8px;font-size:12px">${a.score}% confident it's real · ${esc(((a.what_works||[])[0])||'')} · <a href="#" onclick="launchWatchReport();return false">full report</a></div></div></div>`;
+      $('#lfix').hidden=true; $('#l3').hidden=false; $('#ldeploy').disabled=!WALLET;
+    } else {
+      $('#l2title').textContent=a.status==='error'?'Audit could not finish':'Audit complete';
+      $('#l2audit').innerHTML=a.status==='error'?`<p class="muted">${esc(a.error||'')}</p>`:`<div class="row" style="margin-top:0"><span class="pill ${a.verdict}">${E[a.verdict]||'⚪'} ${esc(a.verdict)}</span><span class="score">${a.score}<span class="muted" style="font-size:13px">/100</span></span><span class="muted">${a.score}% confident it's real · need ${LCFG.min_score}%</span></div><p style="margin:8px 0 0"><b>${esc(a.headline||'')}</b><br><span class="muted">${esc(a.summary||'')}</span></p>`;
+      $('#l3').hidden=true; $('#lfix').hidden=false;
+      $('#lfixwhy').innerHTML=`⛔ <b>${esc(L.eligibility_reason)}.</b>&nbsp; Nothing is lost — fix the items on the left and re-run; the audit is free to repeat.`;
+      const todo=[...(a.would_change_verdict||[])];
+      if(!L.github&&!L.app_url&&!L.docs_url) todo.unshift('Add a link the agent can actually open: a GitHub repo, a live app URL, or docs. Right now there is nothing to test.');
+      if(!L.video_url&&!L.video_path) todo.push('Add a demo video (upload or YouTube/Loom link) showing the product working.');
+      if((L.description||'').length<80) todo.push('Expand the description: say concretely what the product does, who uses it and how — vague text reads as a placeholder.');
+      $('#lfixdo').innerHTML=li(todo);
+      $('#lfixbad').innerHTML=li([...(a.what_doesnt||[]),...(a.red_flags||[])].slice(0,10));
+      $('#lfixdead').innerHTML=(a.dead_links||[]).length?`<div class="box dead" style="margin-top:12px"><h3>Links that didn't work (fix or remove)</h3><ul>${a.dead_links.map(x=>`<li><span><code>${esc(x.url)}</code> — <span class="muted">${esc((x.why||'').slice(0,120))}</span></span></li>`).join('')}</ul></div>`:'';
+    }
+  } else {
+    $('#l2title').textContent='Auditing… (about 30 seconds)'; $('#lfix').hidden=true; $('#l3').hidden=true;
+    if(!$('#l2bar')) $('#l2audit').innerHTML=`<div class="aprog"><i id="l2bar"></i></div><div class="alog" id="l2log"></div>`;
+    startAuditStream(L.audit_test_id); if(!lpoll) lpoll=setInterval(launchShow,3000);
+  }
+  if(L.status==='launched'){ clearInterval(lpoll); $('#l3').hidden=true; const c=L.certificate||{};
+    $('#l4').hidden=false; $('#l4').innerHTML=`<h3 style="margin-top:0">🎉 Live on pump.fun</h3><div class="row" style="margin-top:0"><span class="pill ${a.verdict}">${E[a.verdict]} ${esc(a.verdict)} · ${a.score}/100</span><code>cert ${esc(c.id)}</code></div>
+      <p><a class="btn" href="${esc(L.coin_url)}" target="_blank">Coin page (the locked website link)</a> &nbsp; <a class="btn ghost" href="${esc(L.pump_url)}" target="_blank">pump.fun ↗</a></p><p class="muted">CA <code>${esc(L.mint)}</code><br>tx <code>${esc(L.signature||'')}</code></p><img src="${esc(c.badge_url)}" style="height:28px">`;
+    loadLaunches(); }
+}
+let EDITING=false;
+function launchWatchReport(){ fetch('/api/launch/'+LID).then(r=>r.json()).then(L=>{ const t=L.audit&&L.audit.test_id; if(t){ setTab('test'); $('#watch').hidden=true; render(t); } }); }
+async function launchEdit(){
+  const L=await (await fetch('/api/launch/'+LID)).json(); EDITING=true;
+  for(const [id,k] of [['#ln','name'],['#lt','ticker'],['#ld','description'],['#lg','github'],['#la','app_url'],['#ldoc','docs_url'],['#lx','x_url'],['#ltg','telegram'],['#lv','video_url'],['#lo','onboarding']]) $(id).value=L[k]||'';
+  imgData=null; vidData=null; if(L.image_path){ $('#dimg').innerHTML=`<img src="${esc(L.image_path)}">current image (click to replace)`; }
+  if(L.video_path) $('#dvid').innerHTML=`current video (click to replace)`;
+  $('#lgo').textContent='Save & re-run audit'; $('#lcancel').hidden=false; lstep(1); $('#lstep1').scrollIntoView({behavior:'smooth'});
+}
+let aes=null, aesId=null, aT0=0, aTick=null;
+function startAuditStream(tid){
+  if(!tid||aesId===tid) return; stopAuditStream(); aesId=tid; aT0=Date.now();
+  aTick=setInterval(()=>{ const s=(Date.now()-aT0)/1000; $('#l2clock').textContent=s.toFixed(0)+'s'; const b=$('#l2bar'); if(b) b.style.width=Math.min(100,s/30*100)+'%'; },900);
+  aes=new EventSource(`/api/tests/${tid}/stream`);
+  aes.onmessage=e=>{ const ev=JSON.parse(e.data), L=$('#l2log'); if(!L) return; let t='';
+    if(ev.kind==='phase') t=`▶ ${ev.msg||ev.name}`; else if(ev.kind==='log') t=`  ${ev.msg}`; else if(ev.kind==='tool') t=`  🔧 ${ev.name} ${ev.input&&ev.input.url?ev.input.url:ev.input&&ev.input.repo?ev.input.repo:''}`; else if(ev.kind==='done') t='✔ done — scoring';
+    if(t){ L.textContent+=t+'\n'; L.scrollTop=L.scrollHeight; } if(ev.kind==='done'){ stopAuditStream(); setTimeout(launchShow,800); } };
+  aes.onerror=()=>stopAuditStream();
+}
+function stopAuditStream(){ if(aes) aes.close(); aes=null; aesId=null; clearInterval(aTick); aTick=null; }
+async function reaudit(){ await fetch('/api/launch/'+LID+'/reaudit',{method:'POST'}); $('#l3').hidden=true; $('#lfix').hidden=true; $('#l2audit').innerHTML=`<div class="aprog"><i id="l2bar"></i></div><div class="alog" id="l2log"></div>`; launchShow(); }
+function launchReset(){ stopAuditStream(); LID=null; EDITING=false; localStorage.removeItem('techpad_launch'); clearInterval(lpoll); lpoll=null; lstep(1); $('#l3').hidden=true; $('#lfix').hidden=true; $('#l4').hidden=true; $('#lgo').textContent='Submit for AI audit'; $('#lcancel').hidden=true; }
+async function connectWallet(){
+  const p=window.phantom?.solana||window.solana; if(!p||!p.isPhantom) return alert('Phantom wallet not found — install it from phantom.app');
+  const r=await p.connect(); WALLET=r.publicKey.toString(); $('#lwallet').textContent=WALLET.slice(0,4)+'…'+WALLET.slice(-4); $('#lconnect').textContent='connected';
+  const L=await (await fetch('/api/launch/'+LID)).json(); $('#ldeploy').disabled=!L.eligible;
+}
+function loadWeb3(){ return new Promise((res,rej)=>{ if(window.solanaWeb3) return res(); const s=document.createElement('script'); s.src='https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js'; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+async function deploy(){
+  const st=$('#lstatus'); $('#ldeploy').disabled=true;
+  try{
+    st.textContent='loading web3…'; await loadWeb3(); const W=window.solanaWeb3;
+    const mintKp=W.Keypair.generate(); const mint=mintKp.publicKey.toString();
+    st.textContent='uploading metadata + building transaction… (mint '+mint.slice(0,6)+'…)';
+    const r=await fetch(`/api/launch/${LID}/prepare`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({wallet:WALLET,mint,dev_buy_sol:parseFloat($('#ldev').value||'0'),slippage:parseInt($('#lslip').value||'10')})});
+    const d=await r.json(); if(d.error) throw new Error(d.error);
+    const bytes=Uint8Array.from(atob(d.tx_base64),c=>c.charCodeAt(0)); const tx=W.VersionedTransaction.deserialize(bytes); tx.sign([mintKp]);
+    st.textContent='sign in Phantom…'; const p=window.phantom?.solana||window.solana;
+    const {signature}=await p.signAndSendTransaction(tx);
+    st.textContent='sent '+signature.slice(0,10)+'… waiting for the mint on-chain';
+    const c=await fetch(`/api/launch/${LID}/confirm`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({signature,mint})}); const cd=await c.json(); if(cd.error) throw new Error(cd.error);
+    st.textContent='live!'; launchShow();
+  }catch(e){ st.textContent='✖ '+(e.message||e); $('#ldeploy').disabled=false; }
+}
+async function loadLaunches(){
+  const d=await (await fetch('/api/launches')).json(); const ls=d.launches||[]; $('#lnone').hidden=ls.length>0;
+  $('#lgrid').innerHTML=ls.map(L=>{const a=L.audit||{};return `<a class="lcard" href="${esc(L.coin_url||'#')}" target="_blank"><img src="${esc(L.image_path)}"><div><b>${esc(L.name)} <span class="muted">$${esc(L.ticker)}</span></b><span class="muted" style="font-size:12px">${E[a.verdict]||''} ${esc(a.verdict||'')} ${a.score??''}/100</span></div></a>`}).join('');
+}
+
+/* ---------------------------------------------------------------- archive + ticker ---- */
+async function loadArchive(){
+  const q=new URLSearchParams({q:$('#aq').value,verdict:$('#av').value});
+  const d=await (await fetch('/api/archive?'+q)).json(); const s=d.stats||{};
+  $('#astats').innerHTML=`<span>${s.total||0} tests</span><span>${s.active||0} running</span><span>$${s.spent_usd||0} spent</span>`+Object.entries(s.by_verdict||{}).map(([k,v])=>`<span>${E[k]||''} ${k}: ${v}</span>`).join('');
+  $('#atable tbody').innerHTML=(d.tests||[]).map(r=>`<tr class="link" onclick="openArchived('${r.id}')">
+    <td class="muted">${new Date(r.created_at*1000).toLocaleString()}</td>
+    <td><span class="pill ${r.verdict||r.status}">${E[r.verdict]||'⏳'} ${esc(r.verdict||r.status)}</span></td>
+    <td>${r.score??'–'}</td><td>${esc(r.project_name||'')}</td><td><code>${esc((r.ca||r.x_url||'').slice(0,46))}</code></td></tr>`).join('')||'<tr><td colspan="5" class="muted">nothing yet</td></tr>';
+}
+function openArchived(id){ setTab('test'); $('#watch').hidden=true; location.hash='t/'+id; render(id); }
+async function loadTicker(){
+  try{ const d=await (await fetch('/api/archive?limit=25')).json(); const items=(d.tests||[]).filter(r=>r.verdict).map(r=>`<span>${E[r.verdict]} ${esc(r.verdict)} ${r.score??''} · ${esc(r.project_name||r.ca||'')}</span>`);
+    $('#ticker').innerHTML = items.length ? items.join('')+items.join('') : '<span>no verdicts yet — be the first to test a coin</span>'; }catch(e){}
+}
+$('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)) submit(); });
+$('#q').addEventListener('input',async()=>{ const m=$('#q').value.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/); if(!m) return $('#hint').textContent='';
+  const d=await (await fetch('/api/lookup?key='+encodeURIComponent(m[0]))).json(); $('#hint').textContent=d.found?`already tested: ${E[d.test.verdict]||'⏳'} ${d.test.verdict||d.test.status} — submit to see it`:''; });
+fetch('/api/status').then(r=>r.json()).then(s=>{ if(s.mock) $('#hint').textContent='server is in MOCK mode (no real AI)'; });
+loadTicker(); loadRooms();
+if(location.hash.startsWith('#t/')){ $('#app').scrollIntoView(); render(location.hash.slice(3)); }
+</script>
+</body>
+</html>

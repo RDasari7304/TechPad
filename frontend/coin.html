@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<meta property="og:title" content="{{TITLE}}"><meta property="og:description" content="{{DESC}}"><meta property="og:image" content="{{IMAGE}}">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{--bg:#0a0b0d;--panel:#15181d;--line:#242830;--text:#eef0f2;--muted:#8a919d;--green:#86efac;--green2:#22c55e;--orange:#fbbf24;--yellow:#fde047;--red:#f87171;--blue:#60a5fa;--mono:ui-monospace,Menlo,Consolas,monospace}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--green)} code{font-family:var(--mono);font-size:13px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,11,13,.85);backdrop-filter:blur(8px);z-index:5}
+  header a.brand{font-weight:800;text-decoration:none;color:var(--text);font-size:17px} header a.brand span{color:var(--green)}
+  header .r{margin-left:auto;display:flex;gap:10px}
+  .btn{background:var(--green);color:#05140a;border:0;padding:10px 18px;border-radius:999px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-family:inherit}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)} .btn.ghost:hover{border-color:var(--green)}
+  main{max-width:1100px;margin:0 auto;padding:36px 20px 90px}
+  .muted{color:var(--muted);font-size:13px}
+  .chip{display:inline-flex;align-items:center;font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-family:var(--mono)}
+
+  /* hero */
+  .hero{display:flex;gap:26px;align-items:center;text-align:left;margin-bottom:26px;flex-wrap:wrap}
+  .hero img{width:150px;height:150px;border-radius:30px;object-fit:cover;border:1px solid var(--line);background:#000;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .hero h1{margin:0 0 6px;font-size:42px;line-height:1.05;letter-spacing:-1px} .hero h1 small{color:var(--muted);font-weight:500;font-size:20px;margin-left:10px;letter-spacing:0}
+  .hero .chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
+  .ca{display:inline-flex;gap:10px;align-items:center;background:#0c0e11;border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-family:var(--mono);font-size:12px;cursor:pointer} .ca:hover{border-color:var(--green)} .ca b{color:var(--green)}
+
+  /* certificate */
+  .certwrap{margin-bottom:14px}
+  .cert{width:100%;position:relative;overflow:hidden;border-radius:22px;padding:2px;background:linear-gradient(135deg,rgba(134,239,172,.55),rgba(134,239,172,.08) 40%,rgba(96,165,250,.25))}
+  .cert .in{background:linear-gradient(160deg,#171b21,#0e1014);border-radius:20px;padding:26px 28px;position:relative}
+  .cert .in::before{content:'';position:absolute;inset:0;background:radial-gradient(400px 160px at 80% -20%,rgba(134,239,172,.14),transparent 70%);pointer-events:none;border-radius:20px}
+  .cert .lbl{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:16px}
+  .cert .row{display:flex;gap:22px;align-items:center}
+  .seal{flex:0 0 auto;width:118px;height:118px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative}
+  .seal svg{position:absolute;inset:0;transform:rotate(-90deg)} .seal circle{fill:none;stroke-width:7;stroke-linecap:round} .seal .bg{stroke:#23272e}
+  .seal .n{font-family:var(--mono);text-align:center;line-height:1} .seal .n b{font-size:34px;display:block} .seal .n small{font-size:10px;color:var(--muted);letter-spacing:1px}
+  .cert .v{font-size:26px;font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .WORKS{color:var(--green)} .PARTIAL{color:var(--orange)} .UNVERIFIED{color:var(--yellow)} .LARP{color:var(--red)}
+  .cert .hl{font-size:15px;color:#d7dbe0;line-height:1.45;margin-bottom:12px}
+  .cert .meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);display:grid;grid-template-columns:auto 1fr;gap:3px 12px} .cert .meta b{color:var(--text);font-weight:600}
+  .cert .foot{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+  .cert .foot .btn.ghost{border-color:#2d333c}
+  .cert .btn .car{display:inline-block;transition:transform .25s} .cert .btn.open .car{transform:rotate(180deg)}
+
+  /* findings (toggled) */
+  .findings{margin:0 0 26px;overflow:hidden;max-height:0;opacity:0;transition:max-height .45s ease,opacity .35s ease}
+  .findings.open{max-height:1200px;opacity:1}
+  .fcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-top:18px}
+  .fcard .sum{font-size:15.5px;line-height:1.6;color:#d7dbe0;margin:0 0 18px}
+  .caro{position:relative;overflow:hidden;border-radius:14px}
+  .caro .track{display:flex;transition:transform .35s ease}
+  .slide{flex:0 0 100%;min-width:0;padding:0 1px}
+  .find{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;background:#0f1114;border:1px solid var(--line);border-left-width:5px;border-radius:14px;padding:18px 20px;min-height:120px}
+  .find.ok{border-left-color:var(--green)} .find.flag{border-left-color:var(--red)} .find.fix{border-left-color:var(--blue)}
+  .find .ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#1a1e25}
+  .find .k{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:6px}
+  .find .t{font-size:16px;line-height:1.5}
+  .cnav{display:flex;align-items:center;gap:10px;margin-top:14px}
+  .cnav button{background:#0c0e11;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:var(--mono);font-size:12px} .cnav button:disabled{opacity:.35;cursor:default}
+  .dots{display:flex;gap:6px;margin:0 auto} .dots i{width:7px;height:7px;border-radius:50%;background:#2a2f38;cursor:pointer} .dots i.on{background:var(--green)} .dots i.flag{background:#4a2a2e} .dots i.flag.on{background:var(--red)}
+  .cnav .ctr{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  /* body */
+  .grid{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:18px}
+  .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px} @media (max-width:800px){.two{grid-template-columns:1fr}}
+  .links a{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text);font-weight:600} .links a:last-child{border:0} .links a span{color:var(--muted);font-size:12px;margin-left:auto;font-family:var(--mono);font-weight:400}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px}
+  .card h3{margin:0 0 12px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  .lead{font-size:19px;line-height:1.45;margin:0 0 10px;font-weight:600}
+  .video{aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;border:1px solid var(--line)} .video iframe,.video video{width:100%;height:100%;border:0;display:block}
+  .md{line-height:1.7;font-size:15px} .md pre{background:#0c0e11;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto} .md code{background:#0c0e11;padding:1px 5px;border-radius:4px} .md h1,.md h2,.md h3{margin:14px 0 6px;font-size:16px;letter-spacing:0;text-transform:none;color:var(--text)}
+  .linkrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:0 0 18px}
+  .linkrow a{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:10px 16px;color:var(--text);text-decoration:none;font-size:14px;font-weight:600;transition:border-color .15s,transform .15s}
+  .linkrow a:hover{border-color:var(--green);transform:translateY(-1px)} .linkrow a span{color:var(--muted);font-weight:400;font-family:var(--mono);font-size:12px}
+  .badgerow{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+  .badgerow code{background:#0c0e11;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px}
+  .missing{text-align:center;padding:80px 20px;color:var(--muted)}
+  @media (max-width:640px){.hero{text-align:center;justify-content:center}.hero h1{font-size:30px}.cert .row{flex-direction:column;text-align:center}.cert .meta{grid-template-columns:1fr;text-align:center}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="/">🧪 Tech<span>Pad</span></a><span class="muted">AI-audited tech launch</span>
+  <div class="r"><a class="btn ghost" href="/#app">Test another coin</a><a class="btn" id="pumplink" href="#" target="_blank">Trade on pump.fun ↗</a></div></header>
+<main id="main"><div class="missing">loading…</div></main>
+<script>
+const MINT = "{{MINT}}";
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const E = {WORKS:'🟢',PARTIAL:'🟠',UNVERIFIED:'🟡',LARP:'🔴'};
+const COL = {WORKS:'#86efac',PARTIAL:'#fbbf24',UNVERIFIED:'#fde047',LARP:'#f87171'};
+function md(t){
+  t=esc(t); t=t.replace(/```([\s\S]*?)```/g,(m,c)=>`<pre>${c}</pre>`);
+  t=t.replace(/^### (.*)$/gm,'<h3>$1</h3>').replace(/^## (.*)$/gm,'<h2>$1</h2>').replace(/^# (.*)$/gm,'<h1>$1</h1>');
+  t=t.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  t=t.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');
+  t=t.replace(/^(?:[-*] .*(?:\n|$))+/gm, m=>'<ul>'+m.trim().split('\n').map(l=>'<li>'+l.replace(/^[-*] /,'')+'</li>').join('')+'</ul>');
+  return t.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+}
+let FIND=[], idx=0;
+function go(i){ idx=Math.max(0,Math.min(i,FIND.length-1)); document.querySelector('.caro .track').style.transform=`translateX(-${idx*100}%)`;
+  document.getElementById('cprev').disabled=idx===0; document.getElementById('cnext').disabled=idx>=FIND.length-1; document.getElementById('cctr').textContent=`${idx+1} / ${FIND.length}`;
+  [...document.querySelectorAll('.dots i')].forEach((d,j)=>d.classList.toggle('on',j===idx)); }
+function toggleReport(btn){ const f=document.getElementById('findings'); const open=!f.classList.contains('open'); f.classList.toggle('open',open); btn.classList.toggle('open',open);
+  btn.querySelector('.lbl2').textContent=open?'Hide report':'View full report'; if(open) setTimeout(()=>f.scrollIntoView({behavior:'smooth',block:'nearest'}),120); }
+document.addEventListener('keydown',e=>{ if(!document.getElementById('findings')?.classList.contains('open')) return; if(e.key==='ArrowLeft') go(idx-1); if(e.key==='ArrowRight') go(idx+1); });
+
+(async()=>{
+  const r=await fetch('/api/coin/'+MINT); const m=document.getElementById('main');
+  if(!r.ok){ m.innerHTML=`<div class="missing"><h2>No audited launch for this mint</h2><code>${esc(MINT)}</code><p><a href="/#app">Run a TechPad test on it instead →</a></p></div>`; return; }
+  const L=await r.json(), a=L.audit||{}, c=L.certificate||{}, V=a.verdict||'UNVERIFIED', col=COL[V]||'#9aa4b2';
+  document.getElementById('pumplink').href=L.pump_url||'#';
+  const score=a.score??0, R=52, C=2*Math.PI*R;
+  FIND=[...(a.what_works||[]).map(t=>({k:'ok',l:'VERIFIED WORKING',ic:'✓',t})), ...(a.red_flags||[]).map(t=>({k:'flag',l:'RED FLAG',ic:'🚩',t}))];
+  if(!FIND.length) FIND=[{k:'fix',l:'NOTE',ic:'ℹ️',t:'The audit produced no itemised findings.'}];
+  const links=[['🐙','GitHub',L.github],['🌐','App',L.app_url],['📚','Docs',L.docs_url],['𝕏','X',L.x_url],['✈️','Telegram',L.telegram],['🎬','Demo video',L.video_url]].filter(x=>x[2]);
+  const video = L.video_embed ? `<iframe src="${esc(L.video_embed)}" allow="autoplay; fullscreen" allowfullscreen></iframe>` : L.video_path ? `<video controls src="${esc(L.video_path)}"></video>` : null;
+
+  m.innerHTML=`
+  <div class="hero">
+    <img src="${esc(L.image_path)}" alt="">
+    <div><h1>${esc(L.name)}<small>$${esc(L.ticker)}</small></h1>
+      <div class="chips"><span class="chip">${esc(a.category||'tech')}</span><span class="chip">pump.fun</span><span class="chip">launched ${L.launched_at?new Date(L.launched_at*1000).toLocaleDateString():''}</span></div>
+      <span class="ca" onclick="navigator.clipboard.writeText('${esc(L.mint)}');this.lastChild.textContent='copied ✓'">${esc(L.mint)} <b>copy</b></span></div>
+  </div>
+
+  <div class="certwrap"><div class="cert"><div class="in">
+    <div class="lbl">TECHPAD · AUDIT CERTIFICATE</div>
+    <div class="row">
+      <div class="seal"><svg width="118" height="118"><circle class="bg" cx="59" cy="59" r="${R}"/><circle cx="59" cy="59" r="${R}" stroke="${col}" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-score/100)}"/></svg>
+        <div class="n"><b style="color:${col}">${score}</b><small>/ 100 REAL</small></div></div>
+      <div style="min-width:0;flex:1">
+        <div class="v ${esc(V)}">${E[V]||'⚪'} ${esc(V)}</div>
+        <div class="hl">${esc(a.headline||'')}</div>
+        <div class="meta"><span>certificate</span><b>${esc(c.id||'—')}</b><span>audited</span><b>${a.finished_at?new Date(a.finished_at*1000).toLocaleString():'—'}</b><span>confidence</span><b>${a.confidence??'–'}%</b></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" onclick="toggleReport(this)"><span class="lbl2">View full report</span> <span class="car">▾</span></button><a class="btn ghost" href="${esc(c.report_url||'#')}" target="_blank">Open audit transcript ↗</a></div>
+  </div></div></div>
+
+  <div class="findings" id="findings"><div class="fcard">
+    <p class="sum">${esc(a.summary||'')}</p>
+    <div class="caro"><div class="track">${FIND.map(f=>`<div class="slide"><div class="find ${f.k}"><div class="ic">${f.ic}</div><div><div class="k">${f.l}</div><div class="t">${esc(f.t)}</div></div></div></div>`).join('')}</div></div>
+    <div class="cnav"><button id="cprev" onclick="go(idx-1)">◀</button><div class="dots">${FIND.map((f,i)=>`<i class="${f.k==='flag'?'flag':''}" onclick="go(${i})"></i>`).join('')}</div><span class="ctr" id="cctr"></span><button id="cnext" onclick="go(idx+1)">▶</button></div>
+  </div></div>
+
+  <div class="grid">
+    ${video?`<div class="card"><h3>Demo</h3><div class="video">${video}</div></div>`:''}
+    <div class="card"><h3>What it does</h3><p class="lead">${esc(a.one_liner||L.description||'')}</p>${L.description&&a.one_liner?`<p class="muted" style="margin:0"><b>From the developer:</b> ${esc(L.description)}</p>`:''}
+      ${L.onboarding?`<h3 style="margin-top:22px">Onboarding · from the developer</h3><div class="md">${md(L.onboarding)}</div>`:''}</div>
+    <div class="two">
+      <div class="card links"><h3>Links</h3>${links.map(([i,l,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${i} ${l}<span>${esc(u.replace(/^https?:\/\/(www\.)?/,'').slice(0,34))}</span></a>`).join('')||'<div class="muted">no links provided</div>'}</div>
+      <div class="card"><h3>Badge</h3><img src="${esc(c.badge_url||'')}" alt="TechPad badge" style="height:28px"><div class="muted" style="margin-top:10px;word-break:break-all">Embed: <code>&lt;img src="${esc(c.badge_url||'')}"&gt;</code></div></div>
+    </div>
+  </div>`;
+  go(0);
+})();
+</script>
+</body>
+</html>
