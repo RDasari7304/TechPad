@@ -76,7 +76,7 @@ class Settings:
     PORT: int = _int("LARPCHECK_PORT", 8000)
     WORKERS: int = _int("LARPCHECK_WORKERS", 6)  # concurrent agent runs; queue depth is unbounded
     DB_PATH: str = os.environ.get("LARPCHECK_DB", str(ROOT / "data" / "larpcheck.db"))
-    PUBLIC_URL: str = os.environ.get("LARPCHECK_PUBLIC_URL", "http://localhost:8000")
+    PUBLIC_URL: str = os.environ.get("LARPCHECK_PUBLIC_URL", "http://localhost:8000").rstrip("/")
 
     # --- Launchpad quick audit (one decisive test, hard caps) ---
     QUICK_BUDGET_USD: float = _float("LARPCHECK_QUICK_BUDGET_USD", 0.35)

@@ -9,7 +9,7 @@ runs containers and gives you a persistent disk. Render is the quickest; a VPS i
 1. Buy the domain (Namecheap, Cloudflare, Porkbun — any registrar).
 2. `git init && git add . && git commit -m "TechPad"` and push to a **private** GitHub repo.
    `.gitignore` already excludes `.env`, `data/` and `.venv/`.
-3. Decide your public URL, e.g. `https://techpad.fun`. It gets written into every launched token's
+3. Decide your public URL, e.g. `https://techpad.onrender.com`. It gets written into every launched token's
    metadata as the website, so pick it once.
 4. Rotate your Anthropic key if it has ever been pasted anywhere (console.anthropic.com → API keys).
 
@@ -23,7 +23,8 @@ runs containers and gives you a persistent disk. Render is the quickest; a VPS i
 3. Plan: **Standard (2 GB)** or higher. Chromium + 4 workers will not fit in 512 MB.
 4. Deploy. First build takes ~5 min (pulls the Playwright image). Check `https://<service>.onrender.com/api/status`
    returns `{"ok": true, ...}`.
-5. **Custom domain**: service → Settings → Custom Domains → add `techpad.fun` and `www.techpad.fun`.
+5. **Custom domain** (optional; the live URL is currently `https://techpad.onrender.com`): service → Settings →
+   Custom Domains → add `yourdomain.com` and `www.yourdomain.com`, then change `LARPCHECK_PUBLIC_URL` to match.
    Render shows the DNS records: at your registrar add
    - `A` record `@` → the IP Render shows (or `ALIAS/ANAME @ → <service>.onrender.com` if your DNS supports it)
    - `CNAME` `www` → `<service>.onrender.com`
@@ -37,14 +38,14 @@ runs containers and gives you a persistent disk. Render is the quickest; a VPS i
 # on the server (Ubuntu 22.04+, 4 GB RAM recommended)
 sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 caddy
 git clone <your repo> techpad && cd techpad
-cp .env.example .env && nano .env        # fill ANTHROPIC_API_KEY, LARPCHECK_PUBLIC_URL=https://techpad.fun, X keys
+cp .env.example .env && nano .env        # fill ANTHROPIC_API_KEY, LARPCHECK_PUBLIC_URL=https://yourdomain.com, X keys
 docker build -t techpad .
 docker run -d --name techpad --restart unless-stopped --env-file .env \
   -v /srv/techpad-data:/app/data -p 127.0.0.1:8000:8000 techpad
 ```
 Reverse proxy + automatic HTTPS with Caddy (`/etc/caddy/Caddyfile`):
 ```
-techpad.fun, www.techpad.fun {
+yourdomain.com, www.yourdomain.com {
     reverse_proxy 127.0.0.1:8000
     encode gzip
     request_body { max_size 60MB }      # video uploads

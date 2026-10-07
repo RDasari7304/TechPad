@@ -293,7 +293,7 @@
         </div>
         <div class="f"><label>Demo video upload <i>optional</i></label><div class="drop" id="dvid" onclick="$('#fvid').click()">click or drop a video<br><small>mp4 / webm · up to 40 MB</small></div><input type="file" id="fvid" accept="video/mp4,video/webm,video/quicktime" hidden></div>
         <div class="f"><label>Onboarding instructions for users <i>markdown · optional</i></label><textarea id="lo" placeholder="## Getting started&#10;1. Connect your wallet at …&#10;2. Run `npm i yourpkg` …"></textarea></div>
-        <div class="f"><label>Website (locked to your coin page)</label><div class="locked">🔒 <b id="siteprev">yoursite/coin/&lt;CA&gt;</b><span class="lk">LOCKED</span></div></div>
+        <div class="f"><label>Website (locked to your coin page)</label><div class="locked">🔒 <b id="siteprev">https://techpad.onrender.com/coin/&lt;CA&gt;</b><span class="lk">LOCKED</span></div></div>
         <div class="notice" id="lrules">On pump.fun the website link opens your coin's page here: demo video, audit certificate, what it does, onboarding. <code>&lt;CA&gt;</code> is filled in with the mint at deploy. The audit is a ~30 s check of the one most decisive thing (your app, repo or docs); you deploy when the agent is at least <b>50%</b> confident the product is real. Creator rewards go to the deploying wallet (pump.fun's own mechanism).</div>
         <div class="row"><button class="btn" id="lgo" onclick="launchSubmit()">Submit for AI audit</button><button class="btn ghost" id="lcancel" onclick="launchShow()" hidden>cancel edit</button><span class="muted" id="lerr"></span></div>
       </div>

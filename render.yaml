@@ -13,7 +13,7 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false          # set in the dashboard, never commit it
       - key: LARPCHECK_PUBLIC_URL
-        value: https://techpad.fun          # <-- your domain, with https://
+        value: https://techpad.onrender.com   # <-- your public URL, with https://, no trailing slash
       - key: LARPCHECK_WORKERS
         value: "4"
       - key: LARPCHECK_MODEL
